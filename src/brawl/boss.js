@@ -35,8 +35,10 @@ Sim.prototype.bossAction=function(id,type,move){
   f.vz=(v.z||Math.cos(f.yaw))/m*9;f.inv=.42;
   this.state(f,'dodge',.4);this.emit('dodge',{id});return true;
  }
- let heavy=type==='heavy';
- if(!['punch','heavy','kick','grab','pick'].includes(type))return false;
+ // The current three-button Brawl layout uses Kick as the power-shot button
+ // during the finale. Keep Heavy as a keyboard/API alias for older controls.
+ let heavy=type==='kick'||type==='heavy';
+ if(!['punch','kick','heavy'].includes(type))return false;
  if(f.weaponCooldown>0||heavy&&f.stamina<25)return false;
  if(heavy)f.stamina-=25;
  f.weaponCooldown=heavy?1.15:.33;f.laserAge=.20;

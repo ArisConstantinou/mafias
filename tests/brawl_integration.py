@@ -55,7 +55,7 @@ with sync_playwright() as pw:
  def target(distance=1.2):
   page.evaluate("distance=>{let a=brawl,s=a.sim,p=s.fighters[0],q=s.fighters[1];q.x=p.x+distance;q.z=p.z;q.inv=0;s.fighters[2].x=8;s.fighters[3].x=9;}",distance)
 
- for action,elapsed in [('punch',300),('heavy',750),('kick',550)]:
+ for action,elapsed in [('punch',300),('kick',550)]:
   start();target()
   page.click(f'[data-action="{action}"]')
   page.evaluate('ms=>advanceTime(ms)',elapsed)
@@ -63,10 +63,19 @@ with sync_playwright() as pw:
   assert hp<100,(action,hp)
   check(action,{'targetHp':hp})
 
+ start();target()
+ page.evaluate("() => {let p=brawl.sim.fighters[0];p.comboReady='heavy';p.comboUntil=brawl.sim.time+3.5;}")
+ page.click('[data-action="punch"]')
+ assert page.evaluate('brawl.sim.fighters[0].state')=='heavy'
+ page.evaluate('advanceTime(750)')
+ assert page.evaluate('brawl.sim.fighters[1].hp')<100
+ check('combo_heavy_punch',True)
+
  start();target(1.1)
- page.click('[data-action="grab"]')
+ page.evaluate("() => {let q=brawl.sim.fighters[1];brawl.sim.dizzy(q,2.2);q.inv=0;brawl.scene.render(brawl.sim,0,'playing');brawl.worldHUD(0);}")
+ page.click('[data-world-action="grab"]')
  assert page.evaluate('brawl.sim.fighters[0].grabTarget')==1
- page.click('[data-action="grab"]')
+ page.click('[data-world-action="grab"]')
  assert page.evaluate('brawl.sim.fighters[1].hp')<100
  check('grab_and_slam',{'targetHp':page.evaluate('brawl.sim.fighters[1].hp')})
 
@@ -77,10 +86,12 @@ with sync_playwright() as pw:
 
  start()
  page.evaluate("() => {let s=brawl.sim,p=s.fighters[0],o=s.items[0];o.x=p.x+.5;o.z=p.z;o.held=null;o.flying=false;o.broken=false;o.slipUntil=0;}")
- page.click('[data-action="pick"]')
+ page.evaluate("() => {brawl.scene.render(brawl.sim,0,'playing');brawl.worldHUD(0);}")
+ page.click('[data-world-action="pick"]')
  assert page.evaluate('brawl.sim.fighters[0].held') is not None
  page.evaluate('advanceTime(400)')
- page.click('[data-action="pick"]')
+ page.evaluate('brawl.worldHUD(0)')
+ page.click('[data-world-action="pick"]')
  page.evaluate('advanceTime(250)')
  assert page.evaluate('brawl.sim.fighters[0].throws')==1
  check('pick_and_throw',{'throws':1})
@@ -139,7 +150,7 @@ with sync_playwright() as pw:
  active=page.evaluate('VOLT_BRAWL_TEST.input()')
  assert active['joy']['x']>.8 and 'punch' in active['actions']
  before=page.evaluate('brawl.sim.fighters[0].x')
- # On touch, a short release punches; holding this button charges Heavy.
+ # Touching Punch acts immediately while the movement pointer remains active.
  cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[point(2,px,py)]})
  assert page.evaluate('VOLT_BRAWL_TEST.input()')['joy']['x']>.8
  page.evaluate('advanceTime(600)')

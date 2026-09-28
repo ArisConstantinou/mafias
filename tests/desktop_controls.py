@@ -98,7 +98,7 @@ with sync_playwright() as pw:
     page.screenshot(path=str(OUT / 'brawl-menu.png'))
     def start_brawl():
         page.evaluate("() => {brawl.start({instant:true,ai:false,seed:7391,selected:0});brawl.testFrozen=true;let s=brawl.sim,p=s.fighters[0],q=s.fighters[1];q.x=p.x+1.15;q.z=p.z;q.inv=0;s.fighters[2].x=8;s.fighters[3].x=9;}")
-    for key, action, duration in [('KeyJ','punch',300),('KeyU','heavy',750),('KeyK','kick',550)]:
+    for key, action, duration in [('KeyJ','punch',300),('KeyK','kick',550)]:
         start_brawl()
         page.keyboard.press(key)
         page.evaluate('ms=>advanceTime(ms)', duration)
@@ -114,7 +114,7 @@ with sync_playwright() as pw:
     assert after['x'] > before['x'] and after['z'] < before['z'], (before, after)
     start_brawl(); page.keyboard.press('Space')
     assert page.evaluate('brawl.sim.fighters[0].stamina') < 100
-    start_brawl(); page.keyboard.press('KeyL')
+    start_brawl(); page.evaluate('brawl.sim.dizzy(brawl.sim.fighters[1],2.5)'); page.keyboard.press('KeyL')
     assert page.evaluate('brawl.sim.fighters[0].grabTarget') == 1
     start_brawl()
     page.evaluate("() => {let s=brawl.sim,p=s.fighters[0],o=s.items[0];o.x=p.x+.5;o.z=p.z;o.held=null;o.flying=false;o.broken=false;o.slipUntil=0;}")
@@ -126,6 +126,6 @@ with sync_playwright() as pw:
     assert page.evaluate('brawl.sim.fighters[0].throws') == 1
     page.keyboard.press('Escape')
     assert page.evaluate('brawl.state') == 'paused'
-    print(json.dumps({'brawl_keyboard': {'move': True, 'punch': True, 'heavy': True, 'kick': True, 'grab': True, 'dodge': True, 'pickup_throw': True, 'pause': True}}))
+    print(json.dumps({'brawl_keyboard': {'move': True, 'punch': True, 'kick': True, 'dizzy_grab': True, 'dodge': True, 'pickup_throw': True, 'pause': True}}))
     assert not errors, errors
     browser.close()

@@ -43,7 +43,14 @@ with sync_playwright() as pw:
         assert all(not f['ko'] and f['hp'] > 0 for f in state['crew']), (label, state)
         if label == 'mobile':
             old_hp = page.evaluate('brawl.sim.boss.hp')
+            assert page.locator('[data-action="kick"]').is_visible()
+            assert page.locator('#kickLabel').inner_text() == 'POWER'
             page.locator('[data-action="punch"]').tap()
+            page.wait_for_timeout(150)
+            assert page.evaluate('brawl.sim.boss.hp') < old_hp
+            page.evaluate('brawl.sim.fighters[0].weaponCooldown=0')
+            old_hp = page.evaluate('brawl.sim.boss.hp')
+            page.locator('[data-action="kick"]').tap()
             page.wait_for_timeout(150)
             assert page.evaluate('brawl.sim.boss.hp') < old_hp
         pacing = page.evaluate("""() => new Promise(resolve => {

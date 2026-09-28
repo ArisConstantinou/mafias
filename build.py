@@ -16,6 +16,8 @@ s=(ROOT/'src'/'template.html').read_text(encoding='utf-8')
 s=s.replace('/*ASSETS*/','const ASSETS='+json.dumps(assets,ensure_ascii=False,separators=(',',':'))+';')
 s=s.replace('/*MODE_SCOOTER_ICON*/',data(ROOT/'assets'/'mode-scooter.webp','image/webp'))
 s=s.replace('/*MODE_BRAWL_ICON*/',data(ROOT/'assets'/'mode-brawl.webp','image/webp'))
+s=s.replace('/*MODE_BRAWL_BACKGROUND*/',data(ROOT/'assets'/'menu-brawl-yard.jpg','image/jpeg'))
+s=s.replace('/*MODE_BRAWL_MOBILE_BACKGROUND*/',data(ROOT/'assets'/'menu-brawl-yard-mobile.jpg','image/jpeg'))
 for name in ['engine','world','game']:
     s=s.replace('/*'+name.upper()+'*/',(ROOT/'src'/f'{name}.js').read_text(encoding='utf-8'))
 (ROOT/'index.html').write_bytes(s.encode('utf-8'))

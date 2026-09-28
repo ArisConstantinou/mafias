@@ -1,4 +1,4 @@
-/* VOLT / ROAST: a small, dependency-free WebGL renderer.
+/* 4 Mafias: a small, dependency-free WebGL renderer.
    All geometry, textures and audio are bundled; no remote requests or analytics. */
 'use strict';
 const V3={
