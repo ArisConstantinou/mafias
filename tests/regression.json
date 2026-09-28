@@ -1,0 +1,262 @@
+{
+  "load": {
+    "ready": true,
+    "photos": 4,
+    "buttons": 4
+  },
+  "voices": {
+    "decoded": 24
+  },
+  "countdown": {
+    "state": "racing",
+    "time": 0.06666666666666667
+  },
+  "collision_and_heat": {
+    "values": [
+      {
+        "hits": 1,
+        "heat": 1,
+        "damage": 7
+      },
+      {
+        "hits": 2,
+        "heat": 1,
+        "damage": 10.060000000000002
+      },
+      {
+        "hits": 3,
+        "heat": 2,
+        "damage": 10.060000000000002
+      },
+      {
+        "hits": 4,
+        "heat": 2,
+        "damage": 10.060000000000002
+      },
+      {
+        "hits": 5,
+        "heat": 3,
+        "damage": 10.060000000000002
+      },
+      {
+        "hits": 6,
+        "heat": 3,
+        "damage": 10.060000000000002
+      },
+      {
+        "hits": 7,
+        "heat": 4,
+        "damage": 10.060000000000002
+      }
+    ],
+    "cooldownPrevented": true,
+    "unchanged": true,
+    "bolts": 14
+  },
+  "rear_throw_items": {
+    "banana": {
+      "fired": true,
+      "rear": true,
+      "cooldown": true,
+      "stockUsed": 1,
+      "damage": 8,
+      "noRepeat": true,
+      "heat": 1,
+      "skid": true,
+      "puncture": false,
+      "itemHits": 1
+    },
+    "pins": {
+      "fired": true,
+      "rear": true,
+      "cooldown": true,
+      "stockUsed": 1,
+      "damage": 16,
+      "noRepeat": true,
+      "heat": 1,
+      "skid": false,
+      "puncture": true,
+      "itemHits": 1
+    },
+    "oil": {
+      "fired": true,
+      "rear": true,
+      "cooldown": true,
+      "stockUsed": 1,
+      "damage": 5,
+      "noRepeat": true,
+      "heat": 1,
+      "skid": true,
+      "puncture": false,
+      "itemHits": 1
+    },
+    "box": {
+      "fired": true,
+      "rear": true,
+      "cooldown": true,
+      "stockUsed": 1,
+      "damage": 23,
+      "noRepeat": true,
+      "heat": 1,
+      "skid": false,
+      "puncture": false,
+      "itemHits": 1
+    }
+  },
+  "pause_resume": {
+    "frozen": true,
+    "state": "racing"
+  },
+  "keyboard_controls": {
+    "lane": 4.188942503865144,
+    "boost": true,
+    "energy": 81.99999999999974,
+    "speed": 15.42918884674445
+  },
+  "pickups": {
+    "repaired": 100,
+    "boost": 100,
+    "supply": 2
+  },
+  "win_conditions": {
+    "race": {
+      "state": "results",
+      "winner": 0
+    },
+    "last": {
+      "state": "results",
+      "winner": 0
+    }
+  },
+  "full_ai_match": {
+    "samples": [
+      {
+        "t": 0.016666666666666666,
+        "alive": 4
+      },
+      {
+        "t": 20.01666666666681,
+        "alive": 4
+      },
+      {
+        "t": 40.01666666666568,
+        "alive": 2
+      }
+    ],
+    "state": "results",
+    "mode": "clash",
+    "time": 48.67,
+    "trackLength": 900,
+    "triangles": 128350,
+    "draws": 42,
+    "winner": 2,
+    "riders": [
+      {
+        "id": 0,
+        "name": "VOLT",
+        "s": 804.48,
+        "lane": 0,
+        "hp": 0,
+        "hits": 4,
+        "heat": 2,
+        "inventory": {
+          "banana": 3,
+          "pins": 3,
+          "oil": 2,
+          "box": 2
+        },
+        "itemHits": 0,
+        "skidUntil": 0,
+        "punctureUntil": 51.86666666666519
+      },
+      {
+        "id": 1,
+        "name": "SPARK",
+        "s": 431.85,
+        "lane": -3.16,
+        "hp": 0,
+        "hits": 20,
+        "heat": 4,
+        "inventory": {
+          "banana": 3,
+          "pins": 2,
+          "oil": 2,
+          "box": 0
+        },
+        "itemHits": 0,
+        "skidUntil": 0,
+        "punctureUntil": 0
+      },
+      {
+        "id": 2,
+        "name": "FUSE",
+        "s": 827.34,
+        "lane": 1.21,
+        "hp": 18.64,
+        "hits": 19,
+        "heat": 4,
+        "inventory": {
+          "banana": 3,
+          "pins": 0,
+          "oil": 2,
+          "box": 1
+        },
+        "itemHits": 2,
+        "skidUntil": 0,
+        "punctureUntil": 0
+      },
+      {
+        "id": 3,
+        "name": "SURGE",
+        "s": 432.15,
+        "lane": -3.02,
+        "hp": 0,
+        "hits": 21,
+        "heat": 4,
+        "inventory": {
+          "banana": 3,
+          "pins": 2,
+          "oil": 2,
+          "box": 0
+        },
+        "itemHits": 1,
+        "skidUntil": 0,
+        "punctureUntil": 0
+      }
+    ],
+    "traps": [],
+    "bullets": 0,
+    "voicesDecoded": 24,
+    "aiThrows": 4,
+    "test_note": "Accelerated fixed-step simulation, not a frame-rate measurement."
+  },
+  "two_finger_joysticks": {
+    "left": {
+      "x": 0.8387095953828544,
+      "y": -0.45161257507980507
+    },
+    "right": {
+      "x": 0,
+      "y": -0.9032251501596101
+    }
+  },
+  "item_image_button": {
+    "bananaStock": 2,
+    "activeTrap": "banana"
+  },
+  "mobile_bubble_layout": [
+    {
+      "x": 226,
+      "y": 463.953125,
+      "w": 196,
+      "h": 110.5
+    },
+    {
+      "x": 8,
+      "y": 174.59375,
+      "w": 196,
+      "h": 110.5
+    }
+  ],
+  "javascript_errors": []
+}

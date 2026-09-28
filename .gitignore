@@ -1,0 +1,4 @@
+.venv/
+.qa-run/
+__pycache__/
+*.pyc

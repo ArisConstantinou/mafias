@@ -1,0 +1,32 @@
+[
+  {
+    "viewport": [
+      1280,
+      800
+    ],
+    "fps": 7.369196757553429,
+    "pixelRatio": 0.7,
+    "triangles": 143890,
+    "drawCalls": 73,
+    "renderer": "ANGLE (Mesa, llvmpipe (LLVM 19.1.7 256 bits), OpenGL 4.5)",
+    "state": "racing",
+    "voicesDecoded": 24,
+    "offline_load_passed": true,
+    "js_errors": []
+  },
+  {
+    "viewport": [
+      430,
+      932
+    ],
+    "fps": 18.949363090851676,
+    "pixelRatio": 0.7,
+    "triangles": 108370,
+    "drawCalls": 75,
+    "renderer": "ANGLE (Mesa, llvmpipe (LLVM 19.1.7 256 bits), OpenGL 4.5)",
+    "state": "racing",
+    "voicesDecoded": 24,
+    "offline_load_passed": true,
+    "js_errors": []
+  }
+]
