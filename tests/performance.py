@@ -1,8 +1,13 @@
 from pathlib import Path
 import os, shutil, sys
+import argparse
 from playwright.sync_api import sync_playwright
 import json
 ROOT=Path(__file__).resolve().parent.parent
+parser=argparse.ArgumentParser()
+parser.add_argument('--html',type=Path,default=ROOT/'index.html')
+parser.add_argument('--output',type=Path,default=ROOT/'tests'/'performance.json')
+args=parser.parse_args()
 BROWSER=os.environ.get('CHROMIUM_EXECUTABLE') or next((str(path) for path in (
  Path(r'C:\Program Files\Google\Chrome\Application\chrome.exe'),
  Path(r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'),
@@ -15,7 +20,7 @@ with sync_playwright() as p:
  for width,height in [(1280,800),(430,932)]:
   ctx=b.new_context(viewport={'width':width,'height':height},device_scale_factor=1,offline=True)
   page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
-  page.set_content((ROOT/'index.html').read_text(encoding='utf-8'),wait_until='domcontentloaded')
+  page.set_content(args.html.read_text(encoding='utf-8'),wait_until='domcontentloaded')
   page.wait_for_function("window.voltRoast && voltRoast.state!=='loading'",timeout=20000)
   assert page.evaluate("voltRoast.state==='menu'")
   page.click('#startBtn')
@@ -25,4 +30,5 @@ with sync_playwright() as p:
   result['offline_load_passed']=True;result['js_errors']=errors;out.append(result);print(json.dumps(result),flush=True)
   ctx.close()
  b.close()
-(ROOT/'tests'/'performance.json').write_text(json.dumps(out,indent=2),encoding='utf-8')
+args.output.parent.mkdir(parents=True,exist_ok=True)
+args.output.write_text(json.dumps(out,indent=2),encoding='utf-8')

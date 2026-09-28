@@ -11,3 +11,11 @@ Original prompt: Publish the supplied VOLT-ROAST-source.zip at arisconstantinou.
 - GitHub Pages publication verified at `https://arisconstantinou.github.io/mafias/`; live index hash matched the local build, desktop and mobile browser interactions passed, and the service worker scope is `/mafias/`.
 - Codex local project `mafia` is registered against this folder. The `mafias` GitHub repository is the remote for `main`.
 - Optional next checks for future work: physical iPhone/Android performance and Safari audio/PWA behavior; native-speaker review of the Bangla lines.
+
+2026-09-28 mobile visibility and driving pass:
+- Protected baseline: `main` at `a771d4a`, clean before work. Changes developed on `fix/mobile-visibility-controls` in a separate worktree.
+- Controlled 430x932 scene: two 196x111 px rider bubbles obscured the view; the same scene now uses one 339x36 px Greek subtitle above the road. Speech events are limited to one speaker every seven seconds; the subtitle can be hidden in Settings while voice remains independent.
+- Fixed-step first-second control sample: cruise 45.3 to 57.6 km/h; diagonal steer and boost 45.3 to 83.2 km/h. Active left and right joystick labels now show the current action and light up together.
+- Captures: `tests/mobile-before.png`, `tests/mobile-game.png`, `tests/mobile-landscape.png`, `tests/mobile-controls-active.png`, and `tests/desktop-action.png`.
+- `tests/mobile_ux.py` checks the controlled scene, settings, three viewport layouts, acceleration, steering, braking, and dialogue timing. `tests/regression.py` checks actual two-finger input and the full race. Windows Chrome performance stayed at about 60 FPS on the RTX 5080 at 1280x800 and 430x932; these measurements do not establish physical phone performance.
+- Version 1.0.1 bumps the hosted service-worker cache so the published game can refresh offline assets.

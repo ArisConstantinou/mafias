@@ -1,5 +1,5 @@
 VOLT / ROAST — SCOOTER INSULT BATTLE
-Playable build 1.0.0 · 28 September 2026
+Playable build 1.0.1 · 28 September 2026
 
 START HERE
 Open index.html in a full desktop browser. Everything needed for gameplay is
@@ -35,9 +35,12 @@ Choose one of the four riders, then choose a mode and press LET IT RIP.
 The scooter accelerates automatically. Both hands remain on its handlebars.
 
 Left joystick: left/right to steer, up to boost, down to brake.
+               Push diagonally up to boost and steer together.
 Right joystick: point and hold to fire fictional electric bolts.
                 Up shoots ahead; down shoots behind; sideways shoots sideways.
 Circular item images: tap once to throw the pictured hazard BEHIND your scooter.
+On phones, a small Greek subtitle appears at the top instead of large speech
+bubbles. SETTINGS > Dialogue text hides it without changing the voice setting.
 
 Desktop controls:
 A / D           Steer left / right.

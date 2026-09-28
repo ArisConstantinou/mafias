@@ -3,6 +3,7 @@ from pathlib import Path
 import os, shutil, sys
 import json,time
 ROOT=Path(__file__).resolve().parent.parent
+sys.stdout.reconfigure(encoding='utf-8')
 BROWSER=os.environ.get('CHROMIUM_EXECUTABLE') or next((str(path) for path in (
  Path(r'C:\Program Files\Google\Chrome\Application\chrome.exe'),
  Path(r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe'),
@@ -59,7 +60,7 @@ with sync_playwright() as p:
  assert sim['aiThrows']>0 and sim['state']=='results';check('full_ai_match',sim)
  # Mobile multi-touch: two independently captured fingers and an actual image-button tap.
  page.set_viewport_size({'width':430,'height':932})
- page.evaluate('voltRoast.resize();voltRoast.mode="clash";voltRoast.start();voltRoast.state="racing";voltRoast.render(1/60)')
+ page.evaluate('voltRoast.resize();voltRoast.mode="clash";voltRoast.start();voltRoast.state="racing";$("countdown").style.display="none";voltRoast.render(1/60)')
  page.wait_for_timeout(200)
  left=page.locator('#leftStick').bounding_box();right=page.locator('#rightStick').bounding_box()
  touch=[{'x':left['x']+left['width']*.76,'y':left['y']+left['height']*.36,'id':1}, {'x':right['x']+right['width']*.5,'y':right['y']+right['height']*.22,'id':2}]
@@ -67,18 +68,25 @@ with sync_playwright() as p:
  cdp.send('Input.dispatchTouchEvent',{'type':'touchStart','touchPoints':touch})
  dual=page.evaluate('({left:{x:voltRoast.sticks.left.x,y:voltRoast.sticks.left.y},right:{x:voltRoast.sticks.right.x,y:voltRoast.sticks.right.y}})')
  assert dual['left']['x']>.2 and dual['right']['y']<-.2;check('two_finger_joysticks',dual)
+ page.evaluate('for(let i=0;i<30;i++)voltRoast.update(1/60)')
+ touch_drive=page.evaluate('({boost:voltRoast.player.boosting,lane:voltRoast.player.lane,energy:voltRoast.player.energy,left:document.querySelector(".stick-wrap.left .stick-title").textContent,right:document.querySelector(".stick-wrap.right .stick-title").textContent,leftActive:document.querySelector(".stick-wrap.left").classList.contains("engaged"),rightActive:document.querySelector(".stick-wrap.right").classList.contains("engaged")})')
+ assert touch_drive['boost'] and touch_drive['lane']>0 and touch_drive['energy']<100 and touch_drive['left']=='BOOST + RIGHT' and touch_drive['right']=='FIRE ↑' and touch_drive['leftActive'] and touch_drive['rightActive'],touch_drive
+ check('touch_boost_and_steer',touch_drive)
+ page.evaluate('voltRoast.render(1/60)')
+ page.screenshot(path=str(ROOT/'tests'/'mobile-controls-active.png'))
  cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[]})
  page.locator('#item-banana').dispatch_event('pointerdown',{'pointerId':5,'clientX':140,'clientY':695})
  assert page.evaluate('voltRoast.player.inventory.banana')==2
  check('item_image_button',{'bananaStock':2,'activeTrap':page.evaluate('voltRoast.traps[0].type')})
  # A controlled live-engine scene for layout and collision screenshot verification.
- page.evaluate('''() => {let g=voltRoast;g.start();g.state='racing';$('countdown').style.display='none';g.time=15;g.raceTime=12;let coords=[[96,0],[104,-3],[101,2.5],[112,.4]];g.riders.forEach((r,i)=>{r.s=coords[i][0];r.lane=coords[i][1];r.speed=16;r.hp=[84,76,69,92][i];r.hits=[5,5,3,1][i];});g.updatePositions();g.say(g.player);g.say(g.riders[1]);g.traps=[{id:1,type:'banana',s:104,lane:.1,owner:2,age:2,landed:true,y:0,life:18},{id:2,type:'pins',s:114,lane:-1.7,owner:3,age:2,landed:true,y:0,life:18},{id:3,type:'oil',s:121,lane:3,owner:2,age:2,landed:true,y:0,life:18}];g.settings.quality='high';g.resize();g.render(1/60);}''')
+ page.evaluate('''() => {let g=voltRoast;g.start();g.state='racing';$('countdown').style.display='none';g.time=15;g.raceTime=12;let coords=[[96,0],[104,-3],[101,2.5],[112,.4]];g.riders.forEach((r,i)=>{r.s=coords[i][0];r.lane=coords[i][1];r.speed=16;r.hp=[84,76,69,92][i];r.hits=[5,5,3,1][i];});g.updatePositions();g.registerHit(g.player,g.riders[1]);g.traps=[{id:1,type:'banana',s:104,lane:.1,owner:2,age:2,landed:true,y:0,life:18},{id:2,type:'pins',s:114,lane:-1.7,owner:3,age:2,landed:true,y:0,life:18},{id:3,type:'oil',s:121,lane:3,owner:2,age:2,landed:true,y:0,life:18}];g.settings.quality='high';g.resize();g.render(1/60);}''')
  page.wait_for_timeout(400)
  page.screenshot(path=str(ROOT/'tests'/'mobile-game.png'))
  boxes=page.evaluate('''() => [...document.querySelectorAll('.bubble')].filter(e=>Number(e.style.opacity)>0).map(e=>{let r=e.getBoundingClientRect();return {x:r.x,y:r.y,w:r.width,h:r.height};})''')
- if len(boxes)==2:
-  a,bb=boxes;assert not(a['x']<bb['x']+bb['w'] and a['x']+a['w']>bb['x'] and a['y']<bb['y']+bb['h'] and a['y']+a['h']>bb['y']),boxes
- check('mobile_bubble_layout',boxes)
+ assert not boxes,boxes
+ caption=page.locator('#dialogueCaption').bounding_box()
+ assert caption and caption['height']<70 and caption['y']+caption['height']<250,caption
+ check('mobile_dialogue_layout',{'bubbles':boxes,'caption':caption})
  page.set_viewport_size({'width':1280,'height':800});page.evaluate('voltRoast.resize();voltRoast.render(1/60)');page.wait_for_timeout(250);page.screenshot(path=str(ROOT/'tests'/'desktop-action.png'))
  page.set_viewport_size({'width':844,'height':390});page.evaluate('voltRoast.resize();voltRoast.render(1/60)');page.wait_for_timeout(250);page.screenshot(path=str(ROOT/'tests'/'mobile-landscape.png'))
  page.evaluate('voltRoast.garage();voltRoast.render(1/60)')
