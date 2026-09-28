@@ -23,6 +23,11 @@ with sync_playwright() as p:
  assert page.evaluate("voltRoast.state==='menu'")
  check('load',{'ready':True,'photos':page.locator('#heroes img').count(),'buttons':page.locator('#itemButtons button').count()})
  page.evaluate('voltRoast.frame=()=>{}')
+ page.click('#settingsBtn')
+ assert page.evaluate("document.elementFromPoint(innerWidth/2,innerHeight/2)?.closest('.screen')?.id")== 'settingsScreen'
+ page.locator('#settingsScreen [data-close]').first.click()
+ assert not page.locator('#settingsScreen').evaluate('(el)=>el.classList.contains("visible")')
+ check('menu_settings_open_close',True)
  page.wait_for_timeout(350)
  page.locator('.hero').nth(3).click()
  assert page.evaluate('voltRoast.player.id')==3
@@ -45,6 +50,18 @@ with sync_playwright() as p:
  check('rear_throw_items',item_tests)
  pause=page.evaluate('''() => {let g=voltRoast;g.start();g.state='racing';g.pause();let s=g.player.s,t=g.time;for(let i=0;i<90;i++)g.update(1/60);let frozen=g.time===t&&g.player.s===s;g.resume();return {frozen,state:g.state};}''')
  assert pause['frozen'] and pause['state']=='racing';check('pause_resume',pause)
+ page.click('#pauseBtn')
+ page.click('#pauseSettingsBtn')
+ assert page.evaluate("document.elementFromPoint(innerWidth/2,innerHeight/2)?.closest('.screen')?.id")== 'settingsScreen'
+ page.locator('#dialogueSetting').uncheck()
+ assert page.evaluate('voltRoast.settings.dialogue') is False
+ page.locator('#dialogueSetting').check()
+ assert page.evaluate('voltRoast.settings.dialogue') is True
+ page.locator('#settingsScreen [data-close]').first.click()
+ assert page.evaluate("document.elementFromPoint(innerWidth/2,innerHeight/2)?.closest('.screen')?.id")== 'pauseScreen'
+ page.click('#resumeBtn')
+ assert page.evaluate("voltRoast.state==='racing'")
+ check('pause_settings_open_close_resume',True)
  # Keyboard event routing through the actual controls.
  page.keyboard.down('KeyD');page.keyboard.down('KeyW')
  page.evaluate('for(let i=0;i<45;i++)voltRoast.update(1/60)')

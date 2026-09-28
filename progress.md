@@ -19,3 +19,8 @@ Original prompt: Publish the supplied VOLT-ROAST-source.zip at arisconstantinou.
 - Captures: `tests/mobile-before.png`, `tests/mobile-game.png`, `tests/mobile-landscape.png`, `tests/mobile-controls-active.png`, and `tests/desktop-action.png`.
 - `tests/mobile_ux.py` checks the controlled scene, settings, three viewport layouts, acceleration, steering, braking, and dialogue timing. `tests/regression.py` checks actual two-finger input and the full race. Windows Chrome performance stayed at about 60 FPS on the RTX 5080 at 1280x800 and 430x932; these measurements do not establish physical phone performance.
 - Version 1.0.1 bumps the hosted service-worker cache so the published game can refresh offline assets.
+
+2026-09-28 pause Settings repair:
+- The pause menu appeared after Settings in the document at the same stacking level, hiding the Settings panel after it opened. Settings now stacks above Pause and returns there when closed.
+- Reproduced the failure on both local and published builds before editing. Verified open, close, and resume at 430x932, 360x780, and 1280x800 after editing; `tests/regression.py` now checks the full navigation flow.
+- Version 1.0.2 refreshes the hosted offline cache. Captures: `tests/settings-pause-before.png` and `tests/settings-pause-after.png`.

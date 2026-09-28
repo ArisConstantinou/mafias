@@ -1,5 +1,5 @@
 VOLT / ROAST — SCOOTER INSULT BATTLE
-Playable build 1.0.1 · 28 September 2026
+Playable build 1.0.2 · 28 September 2026
 
 START HERE
 Open index.html in a full desktop browser. Everything needed for gameplay is
