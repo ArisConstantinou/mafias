@@ -1,0 +1,234 @@
+/* SCARAT finale: deterministic, renderer-independent phase and combat rules. */
+(function(){
+'use strict';
+const Sim=BrawlSim.Sim;
+const cap=(n,a,b)=>Math.max(a,Math.min(b,n));
+const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
+const health=[280,340,400,460];
+
+Sim.prototype.beginBoss=function(roundWinner){
+ this.roundWinner=roundWinner;this.bossOutcome=null;this.cloud.active=false;this.cloud.fade=0;
+ this.boss={phase:'arrival',age:0,x:0,y:0,z:-.7,yaw:Math.PI,scale:.98,
+  tier:0,hp:health[0],maxHp:health[0],attack:'idle',attackAge:0,
+  cooldown:3.0,shots:0,targetIds:[],targetPoints:[],targetCursor:0,attackSerial:0,
+  chaseTargetId:0,chaseAge:0,chaseTime:0,battleTime:0,stride:0,moving:0,
+  pursuitClock:0,aimHold:0,
+  clawOpen:.2,grabbed:null};
+ for(let item of this.items)item.broken=true;
+ for(let f of this.fighters){
+  this.releaseGrab(f);this.dropItem(f);
+  f.x=(f.id-1.5)*1.75;f.z=4.5+(f.id%2)*.35;f.y=0;f.vx=f.vz=f.vy=0;
+  f.yaw=Math.PI;f.hp=100;f.stamina=100;f.head=f.body=f.leg=0;f.ko=false;
+  f.inv=0;f.weaponCooldown=0;f.laserAge=0;f.bossShots=0;f.bossDamage=0;f.grabbedBy=null;
+  this.state(f,'down',0);
+ }
+ this.emit('bossStart',{roundWinner});
+};
+
+Sim.prototype.bossAction=function(id,type,move){
+ let boss=this.boss,f=this.fighters[id];
+ if(!boss||boss.phase!=='battle'||!f||f.ko||f.state==='bossGrabbed')return false;
+ if(type==='dodge'){
+  if(f.stamina<18||f.inv>.3)return false;
+  let v=move||this.input,m=Math.hypot(v.x||0,v.z||0)||1;
+  f.stamina-=18;f.vx=(v.x||Math.sin(f.yaw))/m*9;
+  f.vz=(v.z||Math.cos(f.yaw))/m*9;f.inv=.42;
+  this.state(f,'dodge',.4);this.emit('dodge',{id});return true;
+ }
+ let heavy=type==='heavy';
+ if(!['punch','heavy','kick','grab','pick'].includes(type))return false;
+ if(f.weaponCooldown>0||heavy&&f.stamina<25)return false;
+ if(heavy)f.stamina-=25;
+ f.weaponCooldown=heavy?1.15:.33;f.laserAge=.20;
+ this.bossFire(f,heavy);
+ return true;
+};
+
+Sim.prototype.bossFire=function(f,heavy=false){
+ let b=this.boss;if(!b||b.phase!=='battle'||f.ko)return;
+ let damage=heavy?31:11,applied=Math.min(b.hp,damage);
+ f.bossShots++;f.bossDamage+=applied;
+ this.emit('laserShot',{id:f.id,x:f.x,z:f.z,toX:b.x,toZ:b.z,heavy,damage});
+ b.hp=Math.max(0,b.hp-damage);
+ if(b.hp<=0){
+  b.phase=b.tier<3?'resurrect':'dead';b.age=0;b.attack='idle';b.grabbed=null;
+  b.nextMaxHp=b.tier<3?health[b.tier+1]:0;
+  this.emit(b.phase==='dead'?'bossFinalFall':'bossCollapse',{tier:b.tier});
+ }
+};
+
+Sim.prototype.bossHitPlayer=function(f,damage,source='cannon'){
+ if(!f||f.ko||f.inv>0)return false;
+ f.hp=Math.max(0,f.hp-damage);f.body+=damage;f.inv=.65;
+ this.emit('hit',{id:f.id,damage,zone:'body',source:'boss-'+source,
+  heavy:damage>=30,x:f.x,z:f.z});
+ if(f.hp<=0){f.ko=true;f.state='ko';f.age=0;f.vy=3.4;
+  this.emit('ko',{id:f.id,boss:true,x:f.x,z:f.z});}
+ else this.state(f,'hit',.36);
+ return true;
+};
+
+Sim.prototype.bossBeam=function(shot){
+ let b=this.boss,id=b.targetIds[shot],point=b.targetPoints[shot];
+ if(id===undefined||!point)return;
+ let start={x:b.x+Math.cos(b.yaw)-Math.sin(b.yaw)*3.6,
+  z:b.z-Math.sin(b.yaw)-Math.cos(b.yaw)*3.6},end=point;
+ this.emit('bossLaser',{id,x:start.x,z:start.z,toX:end.x,toZ:end.z,tier:b.tier});
+ let vx=end.x-start.x,vz=end.z-start.z,den=vx*vx+vz*vz||1;
+ for(let f of this.fighters){
+  if(f.ko)continue;
+  let t=cap(((f.x-start.x)*vx+(f.z-start.z)*vz)/den,0,1);
+  let miss=Math.hypot(f.x-(start.x+vx*t),f.z-(start.z+vz*t));
+  if(miss<1.05)this.bossHitPlayer(f,22+b.tier*5,'cannon');
+ }
+};
+
+Sim.prototype.bossStep=function(dt){
+ let b=this.boss;b.age+=dt;
+ if(b.phase==='arrival'){
+  for(let f of this.fighters){
+   let begin=1.95+f.id*.19;
+   if(b.age>=begin){
+    if(f.state==='down'){this.state(f,'getup',1.45);this.emit('bossRevive',{id:f.id});}
+    else if(f.state==='getup'){f.age+=dt;if(f.age>=f.duration)this.state(f,'idle');}
+   }
+  }
+  if(b.age-dt<1.55&&b.age>=1.55)this.emit('bossLand',{x:b.x,z:b.z});
+  if(b.age>=4.65){b.phase='battle';b.age=0;this.fighters.forEach(f=>{this.state(f,'idle');f.inv=1.0;});this.emit('bossBattle',{});}
+  return;
+ }
+ if(b.phase==='resurrect'){
+  if(b.age-dt<1.15&&b.age>=1.15)this.emit('bossRebuild',{tier:b.tier+1});
+  if(b.age>=3.5){b.tier++;b.maxHp=health[b.tier];b.hp=b.maxHp;
+   b.phase='battle';b.age=0;b.cooldown=1.35;b.attack='idle';
+   this.emit('bossResurrected',{tier:b.tier});}
+ }
+ if(b.phase==='dead'||b.phase==='laugh'){
+  if(b.age>=3.25){this.bossOutcome=b.phase==='dead'?'crew':'boss';
+   this.bossResolved=true;this.finish(this.bossOutcome==='crew'?this.roundWinner:null);}
+  return;
+ }
+ if(b.phase==='battle'){
+  b.battleTime+=dt;b.chaseAge+=dt;b.pursuitClock+=dt;
+  if(b.pursuitClock>=3.4){b.pursuitClock=0;b.aimHold=.45;}
+  b.aimHold=Math.max(0,b.aimHold-dt);
+  let living=this.fighters.filter(f=>!f.ko);
+  if(b.chaseAge>=4.2||!living.some(f=>f.id===b.chaseTargetId)){
+   b.chaseAge=0;
+   b.chaseTargetId=living.find(f=>f.id>b.chaseTargetId)?.id??living[0]?.id??0;
+  }
+  let target=b.attack==='claw'?this.fighters[b.targetIds[0]]:this.fighters[b.chaseTargetId];
+  if(!target||target.ko)target=living[0];
+  if(target){
+   let dx=target.x-b.x,dz=target.z-b.z,r=Math.hypot(dx,dz)||1;
+   let desiredYaw=Math.atan2(-dx,-dz);
+   let delta=Math.atan2(Math.sin(desiredYaw-b.yaw),Math.cos(desiredYaw-b.yaw));
+   b.yaw+=cap(delta,-2.8*dt,2.8*dt);
+   let speed=b.aimHold>0||b.attack==='beam'?0:b.attack==='claw'?5.1:b.attack==='charge'?1.9:3.45+b.tier*.25;
+   let gap=b.attack==='claw'?1.9:2.2;
+   let step=Math.min(Math.max(0,r-gap),speed*dt);
+   b.x=cap(b.x+dx/r*step,-9.2,9.2);
+   b.z=cap(b.z+dz/r*step,-6.2,6.2);
+   b.moving=step>0.001?1:0;
+   if(b.moving){b.chaseTime+=dt;b.stride+=step*3.4;}
+  }else b.moving=0;
+ }else b.moving=0;
+ for(let f of this.fighters){
+  f.inv=Math.max(0,f.inv-dt);f.weaponCooldown=Math.max(0,(f.weaponCooldown||0)-dt);
+  f.laserAge=Math.max(0,(f.laserAge||0)-dt);f.age+=dt;
+  if(f.ko){f.y+=f.vy*dt;f.vy-=14*dt;if(f.y<0){f.y=0;f.vy=0;}continue;}
+  if(f.state==='bossGrabbed'){
+   f.x=b.x-Math.sin(b.yaw)*2.15;f.z=b.z-Math.cos(b.yaw)*2.15;
+   f.y=1.2+Math.sin(Math.min(1,b.attackAge)*Math.PI)*.8;continue;
+  }
+  if(f.state==='hit'&&f.age>=.36||f.state==='dodge'&&f.age>=.40)this.state(f,'idle');
+  f.stamina=cap(f.stamina+21*dt,0,100);
+  let intent;
+  if(f.id===this.selected)intent=this.input;
+  else{
+   let theta=f.id*1.55+this.time*.28;
+   let ideal={x:b.x+Math.sin(theta)*3.65,z:b.z+Math.cos(theta)*3.65};
+   let dx=ideal.x-f.x,dz=ideal.z-f.z,m=Math.hypot(dx,dz)||1;
+   intent={x:m>.5?dx/m:0,z:m>.5?dz/m:0};
+   if(b.attack==='charge'&&b.targetIds.includes(f.id)&&f.lastBossDodge!==b.attackSerial){
+    f.lastBossDodge=b.attackSerial;
+    if(this.random()<.38&&f.stamina>=18){
+     let side=f.id%2?-1:1;intent={x:Math.cos(theta)*side,z:-Math.sin(theta)*side};
+     this.bossAction(f.id,'dodge',intent);
+    }
+   }
+  }
+  if(f.state==='dodge'){
+   f.vx*=Math.exp(-2*dt);f.vz*=Math.exp(-2*dt);
+  }else{
+   let k=1-Math.exp(-13*dt);f.vx+=(intent.x*4.2-f.vx)*k;
+   f.vz+=(intent.z*4.2-f.vz)*k;
+   f.state=Math.hypot(f.vx,f.vz)>.3?'walk':'idle';
+  }
+  f.x=cap(f.x+f.vx*dt,-this.bounds.x,this.bounds.x);
+  f.z=cap(f.z+f.vz*dt,-this.bounds.z,this.bounds.z);
+  let awayX=f.x-b.x,awayZ=f.z-b.z,r=Math.hypot(awayX,awayZ)||1;
+  if(r<2.55){f.x=b.x+awayX/r*2.55;f.z=b.z+awayZ/r*2.55;}
+  f.yaw=Math.atan2(b.x-f.x,b.z-f.z);f.speed=Math.hypot(f.vx,f.vz);
+  f.walk+=f.speed*dt*2.6;
+  if(f.id!==this.selected&&b.phase==='battle'&&f.weaponCooldown<=0){
+   f.weaponCooldown=.62+this.random()*.42;this.bossFire(f,false);
+  }
+ }
+ if(b.phase==='resurrect')return;
+ if(this.fighters.every(f=>f.ko)){
+  b.phase='laugh';b.age=0;b.attack='idle';this.emit('bossLaugh',{});return;
+ }
+ b.clawOpen=.28;
+ if(b.attack==='idle'){
+  b.cooldown-=dt;
+  if(b.cooldown<=0){
+   let living=this.fighters.filter(f=>!f.ko);
+   let near=living.slice().sort((a,c)=>distance(a,b)-distance(c,b))[0];
+   if(near&&distance(near,b)<4.15&&this.random()<.55){
+    b.attack='claw';b.attackAge=0;b.grabbed=null;b.targetIds=[near.id];
+    b.attackSerial++;
+    this.emit('bossClawWind',{id:near.id});
+   }else{
+    b.attack='charge';b.attackAge=0;b.shots=0;
+    b.attackSerial++;
+    b.targetIds=[];b.targetPoints=[];
+    for(let j=0;j<Math.min(3,living.length);j++){
+     let f=living[(b.targetCursor+j)%living.length];
+     b.targetIds.push(f.id);b.targetPoints.push({x:f.x,z:f.z});
+    }
+    b.targetCursor=(b.targetCursor+1)%living.length;
+    this.emit('bossCharge',{targets:[...b.targetIds]});
+   }
+  }
+ }else{
+  b.attackAge+=dt;
+  if(b.attack==='charge'){
+   b.clawOpen=.15;
+   if(b.attackAge>=.95){b.attack='beam';b.attackAge=0;}
+  }else if(b.attack==='beam'){
+   while(b.shots<b.targetIds.length&&b.attackAge>=b.shots*.28){
+    this.bossBeam(b.shots);b.shots++;
+   }
+   if(b.attackAge>.85){b.attack='idle';b.cooldown=Math.max(1.2,3.0-b.tier*.38);}
+  }else if(b.attack==='claw'){
+   b.clawOpen=.85;
+   if(b.attackAge>=.53&&b.grabbed===null){
+    let target=this.fighters[b.targetIds[0]];
+    if(target&&!target.ko&&target.inv<=0&&distance(target,b)<4.25){
+     b.grabbed=target.id;target.grabbedBy=-1;this.state(target,'bossGrabbed',1.0);
+     this.emit('bossGrab',{id:target.id});
+    }else b.grabbed=-1;
+   }
+   if(b.attackAge>=1.22){
+    if(b.grabbed>=0){let target=this.fighters[b.grabbed];
+     target.grabbedBy=null;target.y=2.4;
+     target.vx=-Math.sin(b.yaw)*9;target.vz=-Math.cos(b.yaw)*9;target.vy=5;
+     target.inv=0;this.bossHitPlayer(target,34+b.tier*5,'claw');
+     this.emit('bossThrow',{id:target.id});}
+    b.attack='idle';b.cooldown=2.25;b.grabbed=null;
+   }
+  }
+ }
+};
+})();

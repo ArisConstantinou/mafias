@@ -25,7 +25,7 @@ const ITEMS={
 const NAMES=['VOLT','SPARK','FUSE','SURGE'];
 class Sim{
  constructor(options={}){this.seed=options.seed||73129;this.random=rng(this.seed);this.ai=options.ai!==false;this.difficulty=options.difficulty||'normal';this.selected=options.selected||0;this.mode=options.mode||'last';this.bounds={x:11.5,z:8};this.obstacles=[{x:-8.8,z:-5.3,r:1.35},{x:8.8,z:-4.8,r:1.25},{x:-8.8,z:5.7,r:1},{x:9.1,z:5.4,r:1.0}];this.reset();}
- reset(){this.time=0;this.events=[];this.finished=false;this.winner=null;this.draw=false;this.hitStop=0;this.cloud={active:false,x:0,z:0,r:2.4,members:[],age:0,fade:0,quiet:0,serial:0};this.crown={x:0,z:0,holder:null,time:[0,0,0,0]};this.fighters=NAMES.map((n,i)=>this.newFighter(i));this.items=[];let types=Object.keys(ITEMS);let ps=[[-4.8,3.4],[4.8,-3.6],[-6.4,-.4],[6.2,2.5],[1.8,5.8],[-2.7,-5.9],[0,3.5],[-5,-4.8],[7,-1],[-1.3,-3.2],[4.6,5.4],[-6.4,4.8]];ps.forEach((p,i)=>this.items.push(this.newItem(types[i%types.length],...p)));this.input={x:0,z:0};return this;}
+ reset(){this.time=0;this.events=[];this.finished=false;this.winner=null;this.draw=false;this.boss=null;this.bossResolved=false;this.hitStop=0;this.cloud={active:false,x:0,z:0,r:2.4,members:[],age:0,fade:0,quiet:0,serial:0};this.crown={x:0,z:0,holder:null,time:[0,0,0,0]};this.fighters=NAMES.map((n,i)=>this.newFighter(i));this.items=[];let types=Object.keys(ITEMS);let ps=[[-4.8,3.4],[4.8,-3.6],[-6.4,-.4],[6.2,2.5],[1.8,5.8],[-2.7,-5.9],[0,3.5],[-5,-4.8],[7,-1],[-1.3,-3.2],[4.6,5.4],[-6.4,4.8]];ps.forEach((p,i)=>this.items.push(this.newItem(types[i%types.length],...p)));this.input={x:0,z:0};return this;}
  newFighter(i){let p=[[-3.5,2.1],[3.1,1.8],[-2.8,-2.6],[3.3,-2.5]][i];return{id:i,name:NAMES[i],x:p[0],z:p[1],y:0,vy:0,vx:0,vz:0,yaw:Math.atan2(-p[0],-p[1]),hp:100,stamina:100,rage:0,state:'idle',age:0,duration:0,attack:null,attackHit:false,inv:0,cool:0,head:0,body:0,leg:0,damage:0,hits:0,throws:0,kos:0,score:0,combo:0,comboTime:0,revenge:[0,0,0,0],held:null,grabbedBy:null,grabTarget:null,grabTime:0,ko:false,respawn:0,walk:0,speed:0,lastAttack:-100,lastHit:-100,lastAttacker:null,pressureBy:null,pressureHits:0,pressureSince:-100,pressureLast:-100,pushCooldown:0,think:.15+i*.1,aiTarget:null,aiAction:.4+i*.18,intent:{x:0,z:0},cloud:false,escapedUntil:0,dodgeX:0,dodgeZ:0,attackSide:1,rageAttack:false,blocks:0};}
  newItem(type,x,z){return{id:this.items?this.items.length:0,type,x,z,y:0,vx:0,vz:0,vy:0,spin:0,yaw:0,held:null,owner:null,flying:false,broken:false,health:ITEMS[type].durability,hit:new Set(),slipUntil:0};}
  emit(type,data={}){this.events.push({type,time:this.time,...data});if(this.events.length>220)this.events.shift();}
@@ -38,7 +38,7 @@ class Sim{
  state(f,s,duration=0){f.state=s;f.age=0;f.duration=duration;}
  moveInput(x,z){let m=len(x,z);this.input={x:m>1?x/m:x,z:m>1?z/m:z};}
  nearestItem(f){return this.items.filter(o=>o.held===null&&!o.flying&&!o.broken&&o.slipUntil<=this.time).sort((a,b)=>d(a,f)-d(b,f))[0]||null;}
- action(id,type,move){let f=this.fighters[id];if(!f||this.finished||f.ko)return false;
+ action(id,type,move){let f=this.fighters[id];if(!f||this.finished||f.ko)return false;if(this.boss)return this.bossAction(id,type,move);
   if(type==='grab'&&f.grabbedBy!==null){f.grabTime-=.29;f.stamina=Math.max(0,f.stamina-4);if(f.grabTime<=0){let a=this.fighters[f.grabbedBy];this.releaseGrab(a);f.inv=.4;this.emit('escapeGrab',{id});}return true;}
   if(type==='grab'&&f.grabTarget!==null){this.slam(f);return true;}
   if(!this.canAct(f))return false;
@@ -90,7 +90,7 @@ class Sim{
   this.emit('autoPush',{id:q.id,target:f.id,strong,x:f.x,z:f.z});
  }
  throwItem(f){if(f.held===null)return;let o=this.items[f.held],spec=ITEMS[o.type];o.x=f.x+Math.sin(f.yaw)*.8;o.z=f.z+Math.cos(f.yaw)*.8;o.y=1.55;o.held=null;o.owner=f.id;o.flying=true;o.vx=Math.sin(f.yaw)*spec.speed;o.vz=Math.cos(f.yaw)*spec.speed;o.vy=3.8;o.spin=0;o.hit.clear();f.held=null;f.throws++;this.emit('throw',{id:f.id,item:o.type});}
- step(dt=1/60){if(this.finished)return;dt=cap(dt,0,.05);this.time+=dt;
+ step(dt=1/60){if(this.finished)return;dt=cap(dt,0,.05);this.time+=dt;if(this.boss){this.bossStep(dt);return;}
   for(let f of this.fighters){f.inv=Math.max(0,f.inv-dt);f.cool=Math.max(0,f.cool-dt);f.comboTime-=dt;if(f.comboTime<=0)f.combo=0;f.age+=dt;
    if(f.ko){f.respawn-=dt;if(f.respawn<=0)this.revive(f);this.integrate(f,dt);continue;}
    if(f.grabbedBy!==null){let a=this.fighters[f.grabbedBy];if(!a||a.ko){this.releaseGrab(f);continue;}f.x=a.x+Math.sin(a.yaw)*1.1;f.z=a.z+Math.cos(a.yaw)*1.1;f.yaw=a.yaw+Math.PI;f.grabTime-=dt;if(f.grabTime<=0)this.slam(a);continue;}
@@ -151,8 +151,8 @@ class Sim{
  }
  stepCrown(dt){if(this.mode!=='crown')return;let c=this.crown;if(c.holder!==null){let f=this.fighters[c.holder];c.x=f.x;c.z=f.z;c.time[f.id]+=dt;f.score+=10*dt;}else for(let f of this.fighters)if(!f.ko&&f.state!=='down'&&f.state!=='getup'&&d(f,c)<1.0){c.holder=f.id;this.emit('crownPickup',{id:f.id});break;}}
  rank(){return this.fighters.slice().sort((a,b)=>b.score-a.score||b.kos-a.kos||b.hp-a.hp||a.id-b.id);}
- finish(id){this.finished=true;this.winner=id;this.draw=id===null;this.emit('finish',{id});}
- snapshot(){return{time:this.time,mode:this.mode,finished:this.finished,winner:this.winner,cloud:{...this.cloud,members:[...this.cloud.members]},crown:{...this.crown,time:[...this.crown.time]},fighters:this.fighters.map(f=>({...f,revenge:[...f.revenge]})),items:this.items.map(o=>({...o,hit:[...o.hit]}))};}
+ finish(id){if(!this.boss&&!this.bossResolved){this.beginBoss(id);return;}this.finished=true;this.winner=id;this.draw=id===null;this.emit('finish',{id,bossOutcome:this.bossOutcome||null});}
+ snapshot(){return{time:this.time,mode:this.mode,finished:this.finished,winner:this.winner,boss:this.boss?{...this.boss}:null,bossOutcome:this.bossOutcome||null,cloud:{...this.cloud,members:[...this.cloud.members]},crown:{...this.crown,time:[...this.crown.time]},fighters:this.fighters.map(f=>({...f,revenge:[...f.revenge]})),items:this.items.map(o=>({...o,hit:[...o.hit]}))};}
 }
 root.BrawlSim={Sim,ATTACKS,ITEMS,NAMES};if(typeof module!=='undefined'&&module.exports)module.exports=root.BrawlSim;
 })(globalThis);

@@ -5,8 +5,30 @@
 const BRAWL_COLORS=['#f4dc45','#43d6b3','#ff6477','#59c8ff'];
 class BrawlScene{
  constructor(canvas,assets){this.R=new Renderer(canvas);this.assets=assets;this.mesh={};this.texture={};this.heads=[];this.camera=null;this.center=[0,0];this.effects=[];this.pops=[];this.time=0;this.quality='auto';this.shake=0;this.reduced=false;this.random=randSeed(98121);this.build();}
- async load(){for(let i=1;i<=4;i++){let image=await this.loadImage(this.assets('head-'+i+'.png'));let stages=[];for(let stage=0;stage<5;stage++){let c=document.createElement('canvas');c.width=256;c.height=304;let x=c.getContext('2d');x.drawImage(image,0,0);if(stage){x.globalCompositeOperation='source-atop';let pts=[[[92,155],[181,151]],[[88,153],[170,151]],[[89,143],[165,148]],[[92,158],[171,151]]][i-1];for(let eye=0;eye<(stage>=2?2:1);eye++){let [ex,ey]=pts[eye];let g=x.createRadialGradient(ex,ey+6,4,ex,ey+6,31);g.addColorStop(0,'rgba(47,24,61,.62)');g.addColorStop(.5,'rgba(87,41,94,.55)');g.addColorStop(1,'rgba(122,77,66,0)');x.fillStyle=g;x.beginPath();x.ellipse(ex,ey+6,33,24,.12,0,Math.PI*2);x.fill();}if(stage>=3){x.fillStyle='rgba(156,113,73,.34)';x.beginPath();x.ellipse(52,195,21,12,-.6,0,7);x.ellipse(177,235,25,13,.5,0,7);x.fill();x.strokeStyle='rgba(125,64,53,.65)';x.lineWidth=3;x.beginPath();x.moveTo(193,178);x.lineTo(187,188);x.moveTo(202,181);x.lineTo(195,192);x.stroke();}if(stage>=4){x.fillStyle='rgba(89,73,85,.25)';x.fillRect(0,0,256,304);}x.globalCompositeOperation='source-over';}stages.push(this.R.texture(c));}this.heads.push(stages);}return this;}
+ async load(){for(let i=1;i<=4;i++){let image=await this.loadImage(this.assets('head-'+i+'.png'));let stages=[];for(let stage=0;stage<5;stage++){let c=document.createElement('canvas');c.width=256;c.height=304;let x=c.getContext('2d');x.drawImage(image,0,0);if(stage){x.globalCompositeOperation='source-atop';let pts=[[[92,155],[181,151]],[[88,153],[170,151]],[[89,143],[165,148]],[[92,158],[171,151]]][i-1];for(let eye=0;eye<(stage>=2?2:1);eye++){let [ex,ey]=pts[eye];let g=x.createRadialGradient(ex,ey+6,4,ex,ey+6,31);g.addColorStop(0,'rgba(47,24,61,.62)');g.addColorStop(.5,'rgba(87,41,94,.55)');g.addColorStop(1,'rgba(122,77,66,0)');x.fillStyle=g;x.beginPath();x.ellipse(ex,ey+6,33,24,.12,0,Math.PI*2);x.fill();}if(stage>=3){x.fillStyle='rgba(156,113,73,.34)';x.beginPath();x.ellipse(52,195,21,12,-.6,0,7);x.ellipse(177,235,25,13,.5,0,7);x.fill();x.strokeStyle='rgba(125,64,53,.65)';x.lineWidth=3;x.beginPath();x.moveTo(193,178);x.lineTo(187,188);x.moveTo(202,181);x.lineTo(195,192);x.stroke();}if(stage>=4){x.fillStyle='rgba(89,73,85,.25)';x.fillRect(0,0,256,304);}x.globalCompositeOperation='source-over';}stages.push(this.R.texture(c));}this.heads.push(stages);}await this.loadBoss();return this;}
  loadImage(src){return new Promise((resolve,reject)=>{let i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(Error('Could not load character head. Keep assets/ beside index.html.'));i.src=src;});}
+ async loadBoss(){
+  this.bossRig=await (await fetch(this.assets('boss-scarat.rig.json'))).json();
+  this.bossFace=this.R.texture(await this.loadImage(this.assets('boss-face.webp')));
+  if(typeof DecompressionStream!=='function')throw Error('This browser cannot unpack the SCARAT mesh.');
+  let packed=await (await fetch(this.assets('boss-scarat.mesh.gz'))).arrayBuffer();
+  let raw=await new Response(new Blob([packed]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  let view=new DataView(raw),cursor=0;
+  if(String.fromCharCode(...new Uint8Array(raw,0,4))!=='SCB1')throw Error('Invalid SCARAT mesh.');
+  cursor=4;let groups=view.getUint16(cursor,true);cursor+=2;this.bossMeshes={};this.bossTriangles=0;
+  for(let group=0;group<groups;group++){
+   let length=view.getUint8(cursor++),name=new TextDecoder().decode(new Uint8Array(raw,cursor,length));cursor+=length;
+   let count=view.getUint32(cursor,true);cursor+=4;let vertices=new Float32Array(count*12);
+   for(let i=0;i<count;i++){
+    let p=i*12;vertices[p]=view.getFloat32(cursor,true);vertices[p+1]=view.getFloat32(cursor+4,true);vertices[p+2]=view.getFloat32(cursor+8,true);cursor+=12;
+    vertices[p+3]=view.getInt8(cursor++)/127;vertices[p+4]=view.getInt8(cursor++)/127;vertices[p+5]=view.getInt8(cursor++)/127;
+    vertices[p+6]=view.getUint8(cursor++)/255;vertices[p+7]=view.getUint8(cursor++)/255;vertices[p+8]=view.getUint8(cursor++)/255;
+    vertices[p+9]=0;vertices[p+10]=0;vertices[p+11]=view.getUint8(cursor++);
+   }
+   this.bossMeshes[name]=this.R.mesh(vertices);this.bossTriangles+=count/3;
+  }
+  if(cursor!==raw.byteLength)throw Error('SCARAT mesh length mismatch.');
+ }
  tex(w,h,fn,repeat=false){return canvasTex(this.R,w,h,fn,repeat);}
  sign(text,sub='',bg='#153640',fg='#fff1cf',w=1024,h=256){return this.tex(w,h,(c)=>{c.fillStyle=bg;c.fillRect(0,0,w,h);c.strokeStyle='#ffffff28';c.lineWidth=8;c.strokeRect(10,10,w-20,h-20);c.textAlign='center';c.textBaseline='middle';c.fillStyle=fg;c.font=`900 ${sub?h*.38:h*.55}px system-ui`;c.fillText(text,w/2,sub?h*.39:h*.50,w*.93);if(sub){c.fillStyle='#f0ddbe';c.font=`700 ${h*.115}px system-ui`;c.fillText(sub,w/2,h*.78,w*.91);}});}
  build(){let R=this.R,M=this.mesh,T=this.texture;
@@ -51,7 +73,7 @@ class BrawlScene{
   for(let [x,z]of[[-11,-8],[10,-10],[-18,8],[5,-24]]){b.rod([x,0,z],[x+.25,7.3,z],.16,'#8b7655',.10);for(let j=0;j<9;j++){let a=j/9*Math.PI*2,p=[x+.25,7.3,z],q=[x+Math.sin(a)*2.4,6.7,z+Math.cos(a)*2.4];b.rod(p,q,.045,'#6e7951',.006);let r=[x+Math.sin(a+.24)*1.35,7.10,z+Math.cos(a+.24)*1.35];b.tri(p,q,r,j%2?'#667f57':'#8b995f',[0,1,0]);}}
   for(let j=0;j<19;j++){let x=-12+j*1.32,y=6.7-Math.sin(j/18*Math.PI)*1.2;b.rod([x,y,-7.7],[x+1.32,6.7-Math.sin((j+1)/18*Math.PI)*1.2,-7.7],.009,'#566459');b.tri([x,y,-7.7],[x+.65,y-.14,-7.7],[x+.33,y-.82,-7.7],['#c66f51','#d4bb65','#548884'][j%3],[0,0,1]);}
   for(let k=0;k<65;k++){let x=this.random()*24-12,z=this.random()*18-9;if(Math.abs(x)<7&&Math.abs(z)<6)continue;b.box([x,.04,z],[.08+this.random()*.23,.045,.11+this.random()*.17],k%2?'#be8a63':'#aaac9c',[0,this.random()*6,0]);}
-  M.world=R.mesh(b);this.buildFighters();this.buildProps();
+  M.world=R.mesh(b);this.buildFighters();this.buildProps();this.buildLaserGun();
  }
  makeDust(){return this.tex(256,256,c=>{c.clearRect(0,0,256,256);let r=randSeed(36);for(let i=0;i<30;i++){let a=r()*Math.PI*2,dd=r()*67,x=128+Math.cos(a)*dd,y=128+Math.sin(a)*dd,rr=36+r()*27;let g=c.createRadialGradient(x-rr*.25,y-rr*.3,rr*.15,x,y,rr);g.addColorStop(0,'rgba(255,250,229,.9)');g.addColorStop(.60,'rgba(240,231,209,.83)');g.addColorStop(.87,'rgba(202,196,182,.35)');g.addColorStop(1,'rgba(218,213,197,0)');c.fillStyle=g;c.fillRect(x-rr,y-rr,rr*2,rr*2);}c.globalCompositeOperation='destination-in';let mask=c.createRadialGradient(128,128,88,128,128,124);mask.addColorStop(0,'rgba(255,255,255,1)');mask.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=mask;c.fillRect(0,0,256,256);c.globalCompositeOperation='source-over';});}
  makeImpact(){return this.tex(128,128,c=>{c.translate(64,64);c.fillStyle='#fbd455';c.strokeStyle='#273c42';c.lineWidth=4;c.beginPath();for(let i=0;i<20;i++){let a=i/20*Math.PI*2,r=i%2?24:59;c.lineTo(Math.cos(a)*r,Math.sin(a)*r);}c.closePath();c.fill();c.stroke();});}
@@ -77,6 +99,26 @@ class BrawlScene{
    if(type==='mop'){b.rod([0,.14,0],[0,1.7,0],.036,'#b89967');b.box([0,.10,0],[.67,.12,.21],'#427e8b');for(let i=-4;i<=4;i++)b.rod([i*.068,.08,-.05],[i*.075,0,.11],.025,'#d9cfab');}M.props[type]=R.mesh(b);
   }
  }
+ buildLaserGun(){
+  let b=new MeshBuilder();
+  // Layered carbine shell, recessed rail, cooling slots and exposed emitter.
+  b.box([0,0,.24],[.27,.25,.62],'#334958');
+  b.box([0,.10,.18],[.30,.08,.54],'#5b7074');
+  b.box([0,-.08,-.07],[.22,.13,.32],'#24323c');
+  b.box([0,-.24,-.13],[.12,.30,.16],'#26343b',[.18,0,0]);
+  b.box([0,.19,.24],[.08,.11,.34],'#c9af62');
+  b.box([0,.145,-.25],[.25,.07,.28],'#8d9b8e');
+  for(let side of [-1,1]){
+   b.box([side*.15,.015,.16],[.025,.18,.42],'#e1cc7a');
+   for(let j=0;j<4;j++)b.box([side*.167,.02,.025+j*.092],[.016,.085,.041],'#202d35');
+   b.box([side*.09,-.16,-.18],[.033,.21,.075],'#65787b');
+  }
+  for(let j=0;j<3;j++)b.add('torus',[0,0,.39+j*.09],[.115,.115,.06],[0,0,0],j===1?'#73edff':'#30434e',j===1?1:0);
+  b.add('cylinder',[0,0,.66],[.08,.24,.08],[Math.PI/2,0,0],'#25343c');
+  b.add('torus',[0,0,.79],[.094,.094,.055],[0,0,0],'#6eeaff',1);
+  b.add('cylinder',[0,0,.78],[.047,.03,.047],[Math.PI/2,0,0],'#0b2534');
+  this.mesh.laserGun=this.R.mesh(b);
+ }
  resize(w,h,quality='auto'){this.quality=quality;let d=devicePixelRatio||1,r=quality==='low'?.8:quality==='high'?Math.min(d,1.75):Math.min(d,1.2);this.R.resize(w,h,r);this.camera=null;}
  matrix(pos,rot=[0,0,0],scale=[1,1,1]){return M4.trs(pos,rot,scale);}
  drawPart(mesh,parent,p,r=[0,0,0],s=[1,1,1],opt={}){let m=M4.mul(parent,M4.trs(p,r,s));this.R.draw(mesh,m,opt);return m;}
@@ -85,7 +127,7 @@ class BrawlScene{
   this.shadow(f.x,f.z,1.55,f.ko?.15:.65);
   if(f.cloud)return;
   let bob=f.speed>.2?Math.abs(Math.sin(f.walk))*.075:Math.sin(this.time*3.4+f.id)*.022;
-   let tilt=0,h=-.02+bob;if(prone){tilt=-Math.PI/2;h=.3;}else if(getup){let q=smooth(0,.5,f.age);tilt=-Math.PI/2*(1-q);h=.3*(1-q);}else if(duck){tilt=.50;h=-.4;}else if(f.state==='hit'){tilt=-.22*Math.sin(f.age/.24*Math.PI);}else if(f.state==='shoved'){tilt=-.38*Math.sin(Math.min(1,f.age/.48)*Math.PI);h=-.10;}else if(f.state==='push'){tilt=.16*Math.sin(Math.min(1,f.age/.42)*Math.PI);}else if(f.state==='heavy'){tilt=-.16*Math.sin(p*Math.PI*2);}else if(f.state==='grabbed'){tilt=-.13;h=.1;}
+   let tilt=0,h=-.02+bob;if(prone){tilt=-Math.PI/2;h=.3;}else if(getup){let q=smooth(0,f.duration||.5,f.age);tilt=-Math.PI/2*(1-q);h=.3*(1-q);}else if(duck){tilt=.50;h=-.4;}else if(f.state==='hit'){tilt=-.22*Math.sin(f.age/.24*Math.PI);}else if(f.state==='shoved'){tilt=-.38*Math.sin(Math.min(1,f.age/.48)*Math.PI);h=-.10;}else if(f.state==='push'){tilt=.16*Math.sin(Math.min(1,f.age/.42)*Math.PI);}else if(f.state==='heavy'){tilt=-.16*Math.sin(p*Math.PI*2);}else if(f.state==='grabbed'){tilt=-.13;h=.1;}
   root=M4.mul(root,M4.trs([0,h,0],[tilt,0,0]));let opts={tint:[dim,dim,dim]};R.draw(c.body,root,opts);this.drawPart(M.plane,root,[-.20,1.62,.274],[0,0,0],[.23,.23,1],{texture:this.texture.logo,unlit:true});
   // Hierarchical shoulders / elbows / wrists. No camera rotation is applied to hands.
   let walk=Math.sin(f.walk)*Math.min(1,f.speed/2.3),still=f.speed<.25;
@@ -96,10 +138,12 @@ class BrawlScene{
    if(f.state==='counter'){shoulderX=-1.12;elbowX=-1.22;shoulderZ=side*.21;}
    if(strike&&f.state!=='kick'&&side===f.attackSide){let t=clamp((f.age-strike.wind*.45)/(strike.wind*.55+strike.active*.3),0,1),recover=smooth(strike.wind+strike.active,strike.wind+strike.active+strike.recovery,f.age);let reach=Math.sin(t*Math.PI/2)*(1-recover);shoulderX=lerp(.35,-1.63,reach);elbowX=lerp(-1.45,-.10,reach);shoulderZ=side*(f.state==='heavy'?-.35:-.05);wrist=-.3*reach;}
    if(prone){shoulderX=.3;elbowX=-.5;shoulderZ=-side*.5;}
+   if(sim.boss&&!f.ko&&!getup){shoulderX=side===1?-1.32:-1.07;elbowX=side===1?-.60:-.95;shoulderZ=-side*.12;}
    let s=M4.mul(root,M4.trs([side*.46,1.72,0],[shoulderX,0,shoulderZ]));R.draw(c.upper,s,opts);let e=M4.mul(s,M4.trs([0,-.47,0],[elbowX,0,0]));R.draw(c.fore,e,opts);this.drawPart(c.fist,e,[0,-.49,0],[wrist,0,0],[1,1,1],opts);
    let hip=-walk*side*.65,knee=Math.max(0,walk*side)*.65+.08;if(f.leg>=30&&side===-1){hip*=.6;knee+=.20;}if(f.state==='kick'&&side===1){let a=BrawlSim.ATTACKS.kick,reach=Math.sin(clamp(f.age/(a.wind+a.active),0,1)*Math.PI/2)*(1-smooth(a.wind+a.active,a.wind+a.active+a.recovery,f.age));hip=-reach*1.50;knee=.10+Math.sin(f.age/a.wind*Math.PI)*.35*(1-reach);}if(duck){hip=-.7;knee=1.05;}if(prone){hip=-.1+side*.10;knee=.16;}
    let hm=M4.mul(root,M4.trs([side*.22,.97,0],[hip,0,-side*.04]));R.draw(c.thigh,hm,opts);let km=M4.mul(hm,M4.trs([0,-.48,0],[knee,0,0]));R.draw(c.shin,km,opts);this.drawPart(c.shoe,km,[0,-.47,.02],[0,0,0],[1,1,1],opts);
   }
+  if(sim.boss&&!f.ko&&!getup)this.drawPart(M.laserGun,root,[.53,1.28,.64],[-.12,0,0],[1.35,1.35,1.35]);
   if(f.hp<=50){this.drawPart(M.box,root,[.25,1.28,.285],[0,0,.3],[.07,.14,.007],{tint:rgb('#97775a')});}
   let head=M4.point(root,[0,2.36,0]);this.drawHead(f,head,1.02,sim,prone?-.5:0);f.renderHead=head;
   if(sim.crown.holder===f.id)R.draw(M.crown,M4.trs([head[0],head[1]+.77,head[2]],[0,this.time*.6,0]));
@@ -110,8 +154,89 @@ class BrawlScene{
   if(f.id===sim.selected){R.draw(M.halo,M4.mul(R.billboard(p),M4.trs([0,0,-.03],[0,0,0],[size*.70,size*.70,.018])),{tint:rgb(BRAWL_COLORS[f.id]),unlit:true,alpha:.9,blend:true,depthWrite:false});}
  }
  shadow(x,z,size,alpha=.55){this.R.draw(this.mesh.plane,M4.trs([x,.005,z],[Math.PI/2,0,0],[size,size,1]),{texture:this.texture.shadow,blend:true,unlit:true,alpha,depthWrite:false});}
+ drawBeam(a,b,width,color,alpha=1){
+  let y=V3.sub(b,a),length=V3.len(y);if(length<.001)return;
+  y=V3.mul(y,1/length);
+  let x=V3.norm(V3.cross(Math.abs(y[2])<.96?[0,0,1]:[1,0,0],y)),z=V3.cross(x,y),mid=V3.mix(a,b,.5);
+  let matrix=new Float32Array([x[0]*width,x[1]*width,x[2]*width,0,
+   y[0]*length,y[1]*length,y[2]*length,0,z[0]*width,z[1]*width,z[2]*width,0,...mid,1]);
+  this.R.draw(this.mesh.rod,matrix,{tint:rgb(color),unlit:true,blend:true,alpha,depthWrite:false});
+ }
+ drawBoss(boss){
+  if(!boss||!this.bossMeshes)return;
+  let R=this.R,t=boss.age||0,landing=boss.phase==='arrival';
+  let drop=landing?1-smooth(0,1.55,t):0,brace=landing?Math.sin(smooth(1.1,2.45,t)*Math.PI):0;
+  let revival=boss.phase==='resurrect',defeated=boss.phase==='dead',laugh=boss.phase==='laugh';
+  let collapse=revival?(t<.58?smooth(0,.58,t):1-smooth(1.45,3.15,t)):defeated?smooth(0,1.8,t):0;
+  let hover=revival?Math.sin(smooth(1.0,3.3,t)*Math.PI)*(.65+boss.tier*.12):0;
+  let rise=defeated?-.43*collapse:0;
+  let attackAge=boss.attackAge||0,charge=boss.attack==='charge'?smooth(0,.95,attackAge):0;
+  let recoil=boss.attack==='beam'?Math.sin(Math.min(1,attackAge/1.15)*Math.PI*3)*.10:0;
+  let claw=boss.attack==='claw'?Math.sin(smooth(0,1.22,attackAge)*Math.PI)*.85:0;
+  let yaw=boss.yaw??Math.PI,scale=boss.scale||.98,gait=boss.moving?1:0;
+  let root=M4.trs([boss.x||0,(boss.y||0)+drop*8+hover+rise+Math.abs(Math.sin(boss.stride||0))*.045*gait,boss.z||0],
+   [collapse*.27+recoil*.45,yaw,collapse*.66+(laugh?Math.sin(t*11)*.12:0)],[scale,scale,scale]);
+  let pose={};
+  for(let side of ['LEFT','RIGHT']){
+   let sign=side==='LEFT'?-1:1;
+   for(let station of ['FORE','HIND']){
+    let fore=station==='FORE';
+    let step=(boss.stride||0)+(fore===(side==='LEFT')?0:Math.PI),swing=Math.sin(step)*gait,lift=Math.max(0,Math.sin(step))*gait;
+    pose[`SCARAT_${side}_${station}_HIP`]=[sign*(.08+brace*.35+drop*.45+collapse*.30)*(fore?1:-1)+swing*.31,0,sign*drop*.18];
+    pose[`SCARAT_${side}_${station}_KNEE`]=[(fore?-1:1)*(brace*.42+drop*.48+collapse*.28)+lift*.39,0,0];
+    pose[`SCARAT_${side}_${station}_ANKLE`]=[-(fore?-1:1)*(brace*.12+drop*.20)-lift*.16,0,0];
+   }
+   pose[`SCARAT_${side}_CLAW_SHOULDER`]=[-.08-brace*.22-drop*.50-collapse*.55+(side==='LEFT'?-claw*.8:charge*.28-recoil*.7)+(laugh?Math.sin(t*11+sign)*.3:0),0,sign*(.08+(side==='LEFT'?claw*.16:0))];
+   pose[`SCARAT_${side}_CLAW_WRIST`]=[.07+brace*.14+collapse*.4+(side==='LEFT'?claw*.55:charge*.12+recoil*.9),0,0];
+  }
+  let jawOpen=boss.clawOpen??(.25+.07*Math.sin(this.time*2.3));
+  pose.SCARAT_LEFT_CLAW_INNER_JAW=[0,jawOpen,0];
+  pose.SCARAT_LEFT_CLAW_OUTER_JAW=[0,-jawOpen,0];
+  pose.SCARAT_PRESSURE_SPINE=[brace*.08,0,0];
+  pose.SCARAT_SENSOR_BROW=[collapse*.23+(boss.attack==='charge'?-.12:0),0,claw*.06];
+  let matrices={};
+  const matrix=name=>{
+   if(matrices[name])return matrices[name];
+   let joint=this.bossRig[name],parent=joint.parent?matrix(joint.parent):root;
+   let p=joint.pivot,r=pose[name]||[0,0,0],magnify=name==='SCARAT_LEFT_CLAW_WRIST'?1.22:name==='SCARAT_RIGHT_CLAW_WRIST'?1.13:1;
+   matrices[name]=M4.mul(M4.mul(parent,M4.trs(p,r,[magnify,magnify,magnify])),M4.trs(p.map(v=>-v)));
+   return matrices[name];
+  };
+  this.shadow(boss.x||0,boss.z||0,6.8,.65);
+  for(let name of Object.keys(this.bossMeshes))R.draw(this.bossMeshes[name],matrix(name),{tint:defeated?[.65,.66,.68]:[1,1,1]});
+  // The supplied transparent portrait is the boss head. Follow the original
+  // SCARAT sensor joint so every attack, fall and resurrection moves it with
+  // the machine, while the camera-facing cutout stays readable in gameplay.
+  let faceCenter=M4.point(matrix('SCARAT_SENSOR_BROW'),[0,3.05,-2.18]);
+  R.draw(this.mesh.plane,R.billboard(faceCenter,[2.75,2.75,1]),
+   {texture:this.bossFace,unlit:true,blend:true,depthWrite:false,
+    tint:defeated?[.72,.76,.8]:[1,1,1]});
+  this.bossMuzzle=M4.point(matrix('SCARAT_RIGHT_CLAW_WRIST'),[1,1.18,-3.81]);
+  if(charge>0){let radius=.35+charge*.55;
+   R.draw(this.mesh.ring,M4.trs(this.bossMuzzle,[Math.PI/2,0,0],[radius,radius,.045]),
+    {tint:rgb('#ff8b31'),unlit:true,blend:true,alpha:charge*.85,depthWrite:false});}
+  if(landing&&t>=1.45&&t<2.55){
+   let q=smooth(1.45,2.55,t),radius=1+q*5;
+   R.draw(this.mesh.ring,M4.trs([boss.x,.08,boss.z],[Math.PI/2,0,0],[radius,radius,.09]),{tint:rgb('#f6d597'),unlit:true,blend:true,alpha:(1-q)*.75,depthWrite:false});
+   for(let i=0;i<7;i++){let a=i*6.283/7+this.time*.16,p=[boss.x+Math.cos(a)*(1.1+q*3.2),.7+Math.sin(a*2)*.18,boss.z+Math.sin(a)*(1.1+q*3.2)];
+    R.draw(this.mesh.plane,R.billboard(p,[2.2+q,1.55+q*.6,1]),{texture:this.texture.dust,unlit:true,blend:true,alpha:(1-q)*.67,depthWrite:false});
+   }
+  }
+  if(revival&&t>.65&&t<3.4){
+   let q=smooth(.65,3.4,t),pulse=.5+.5*Math.sin(t*18),radius=2.4+q*2.7;
+   R.draw(this.mesh.ring,M4.trs([boss.x,.09,boss.z],[Math.PI/2,0,0],[radius,radius,.09]),
+    {tint:rgb('#75e9ff'),unlit:true,blend:true,alpha:(1-q)*(.35+pulse*.35),depthWrite:false});
+   for(let i=0;i<4;i++){let a=t*2+i*1.57,p=[boss.x+Math.sin(a)*2.1,.8+q*1.4,boss.z+Math.cos(a)*2.1];
+    this.drawBeam(p,[p[0]+Math.sin(a*2)*.45,p[1]+.8,p[2]+Math.cos(a*2)*.45],.025,'#a8f3ff',(1-q)*.75);
+   }
+  }
+ }
  onEvent(e,sim){if(e.type==='hit'){this.shake=Math.max(this.shake,e.heavy?.12:.045);for(let j=0;j<(this.quality==='low'?5:10);j++)this.effects.push({kind:'chip',x:e.x,y:1.4,z:e.z,vx:(this.random()-.5)*5,vy:2+this.random()*3,vz:(this.random()-.5)*5,life:.40+this.random()*.3,max:.7,color:BRAWL_COLORS[e.id],size:.035+this.random()*.04});if(e.cloud){let angle=this.random()*Math.PI*2;this.pops.push({id:e.id,angle,life:.88,max:.88,rotate:(this.random()-.5)*.6});}this.effects.push({kind:'impact',x:e.x,y:1.8,z:e.z,life:.15,max:.15});}
    if(e.type==='autoPush'){this.shake=Math.max(this.shake,e.strong?.10:.055);this.effects.push({kind:'impact',x:e.x,y:1.35,z:e.z,life:.2,max:.2});}
+  if(e.type==='bossLand'){this.shake=Math.max(this.shake,.40);this.effects.push({kind:'impact',x:e.x,y:.8,z:e.z,life:.45,max:.45});}
+  if(e.type==='bossCollapse'||e.type==='bossFinalFall'){this.shake=Math.max(this.shake,.28);for(let i=0;i<18;i++)this.effects.push({kind:'chip',x:sim.boss.x,y:1.7,z:sim.boss.z,vx:(this.random()-.5)*7,vy:1+this.random()*6,vz:(this.random()-.5)*7,life:.6+this.random()*.5,max:1,color:i%2?'#e2b963':'#76eaff',size:.035+this.random()*.04});}
+  if(e.type==='laserShot'){let f=sim.fighters[e.id],muzzle=M4.point(M4.trs([f.x,f.y,f.z],[0,f.yaw,0]),[.53,1.28,1.65]);this.effects.push({kind:'beam',a:muzzle,b:[e.toX,2.0,e.toZ+1.1],color:e.heavy?'#d4faff':'#6feaff',width:e.heavy?.085:.045,life:.22,max:.22});}
+  if(e.type==='bossLaser')this.effects.push({kind:'beam',a:this.bossMuzzle||[e.x,1.7,e.z+1.8],b:[e.toX,1.35,e.toZ],color:'#ff9d43',width:.13,life:.31,max:.31});
   if(e.type==='ko'){let f=sim.fighters[e.id];if(sim.cloud.active)this.pops.push({id:e.id,angle:this.random()*Math.PI*2,life:1.15,max:1.15,rotate:.50});}
   if(e.type==='break')for(let i=0;i<15;i++)this.effects.push({kind:'chip',x:e.x,y:.7,z:e.z,vx:(this.random()-.5)*5,vy:2+this.random()*4,vz:(this.random()-.5)*5,life:1,max:1,color:'#bd9260',size:.08});
  }
@@ -127,14 +252,28 @@ class BrawlScene{
   // Periodic peeks only alter rendering; they never add damage or select random victims.
   if(this.pops.length<2){let id=c.members[Math.floor(t*1.4)%c.members.length],f=sim.fighters[id],a=t*.63,peek=Math.sin((t*1.4%1)*Math.PI);if(f&&!displayed.has(id)){let pos=[c.x+Math.sin(a)*1.9,2.10+peek*.95,c.z+Math.cos(a)*1.1];this.drawHead(f,pos,.96,sim,Math.sin(t*4)*.15);f.renderHead=pos;}}
  }
-  render(sim,dt,state='playing'){this.updateVisual(dt);let R=this.R,M=this.mesh,T=this.texture,player=sim.fighters[sim.selected],portrait=R.w/R.h<.9;let focus=sim.cloud.active&&player.cloud?[sim.cloud.x,sim.cloud.z]:[player.x,player.z];if(state==='menu')focus=[0,0];let sidePanel=state==='tutorial'&&!portrait;let tx=sidePanel?3.6:focus[0]*.46,tz=focus[1]*.36;let k=this.camera?1-Math.exp(-dt*4):1;this.center[0]+= (tx-this.center[0])*k;this.center[1]+=(tz-this.center[1])*k;
-   let base=portrait?[0,14.8,17.8]:sidePanel?[0,8.2,10.8]:[0,10.5,14.5],target=[this.center[0],.3,this.center[1]-.7],eye=[this.center[0]+base[0],base[1],this.center[1]+base[2]];if(!this.reduced&&state==='playing'){eye[0]+=Math.sin(this.time*74)*this.shake;eye[1]+=Math.cos(this.time*65)*this.shake;}
+  render(sim,dt,state='playing'){this.updateVisual(dt);let R=this.R,M=this.mesh,T=this.texture,player=sim.fighters[sim.selected],portrait=R.w/R.h<.9;let focus=sim.boss?[(sim.boss.x+player.x)*.5,(sim.boss.z+player.z)*.5]:sim.cloud.active&&player.cloud?[sim.cloud.x,sim.cloud.z]:[player.x,player.z];if(state==='menu')focus=[0,0];let sidePanel=state==='tutorial'&&!portrait;let tx=sidePanel?3.6:sim.boss?focus[0]:focus[0]*.46,tz=sim.boss?focus[1]:focus[1]*.36;let k=this.camera?1-Math.exp(-dt*4):1;this.center[0]+= (tx-this.center[0])*k;this.center[1]+=(tz-this.center[1])*k;
+   let base=portrait?[0,14.8,17.8]:sidePanel?[0,8.2,10.8]:[0,10.5,14.5];if(sim.boss){let separation=Math.hypot(sim.boss.x-player.x,sim.boss.z-player.z),zoom=Math.min(1.3,1+Math.max(0,separation-(portrait?6:8))*.045);base=base.map(v=>v*zoom);}let target=[this.center[0],.3,this.center[1]-.7],eye=[this.center[0]+base[0],base[1],this.center[1]+base[2]];if(!this.reduced&&state==='playing'){eye[0]+=Math.sin(this.time*74)*this.shake;eye[1]+=Math.cos(this.time*65)*this.shake;}
   this.camera=eye;R.begin(eye,target,portrait?53:54);R.draw(M.ground,M4.id(),{texture:T.concrete});R.draw(M.world);for(let l of this.labels)R.draw(M.plane,M4.trs(l.p,l.rot,l.s),{texture:l.tex});R.draw(M.plane,M4.trs([0,.013,0],[-Math.PI/2,0,0],[9,9,1]),{texture:T.decal,blend:true,unlit:true,depthWrite:false});
   if(state!=='menu'){let col=BRAWL_COLORS[player.id];R.draw(M.ring,M4.trs([player.x,.027,player.z],[Math.PI/2,0,0],[.73,.73,.025]),{tint:rgb(col),unlit:true});let nearest=sim.nearestItem(player);if(nearest&&Math.hypot(nearest.x-player.x,nearest.z-player.z)<1.9&&player.held===null&&!player.ko)R.draw(M.ring,M4.trs([nearest.x,.055,nearest.z],[Math.PI/2,0,this.time],[.51,.51,.022]),{tint:rgb('#f5df88'),unlit:true});}
   // Props have their own physical positions and rotations, not emoji billboards.
   for(let o of sim.items){if(o.broken)continue;let scale=o.type==='mop'?.80:1;this.shadow(o.x,o.z,.8,.45);let rot=[o.flying?o.spin:0,o.flying?o.spin*.7:o.yaw,0];let p=[o.x,o.y,o.z];if(o.held!==null){let f=sim.fighters[o.held];p=[f.x+Math.sin(f.yaw)*.8,f.y+1.55,f.z+Math.cos(f.yaw)*.8];rot=[-.24,f.yaw,0];}R.draw(M.props[o.type],M4.trs(p,rot,[scale,scale,scale]));}
   if(sim.mode==='crown'&&sim.crown.holder===null){this.shadow(sim.crown.x,sim.crown.z,1,.6);R.draw(M.crown,M4.trs([sim.crown.x,.45+Math.sin(this.time*3)*.13,sim.crown.z],[0,this.time,0],[1.35,1.35,1.35]));}
-  for(let f of sim.fighters)if(state!=='tutorial'||f.id<2)this.drawFighter(f,sim);if(state!=='tutorial')this.drawCloud(sim);
-  for(let e of this.effects){if(e.kind==='chip')R.draw(M.box,M4.trs([e.x,e.y,e.z],[e.life*7,e.life*9,0],[e.size,e.size,e.size]),{tint:rgb(e.color),alpha:Math.min(1,e.life*3)});else R.draw(M.plane,R.billboard([e.x,e.y,e.z],[1.12,1.12,1]),{texture:T.impact,unlit:true,blend:true,depthWrite:false,alpha:e.life/e.max});}
+  for(let f of sim.fighters)if(state!=='tutorial'||f.id<2){
+   this.drawFighter(f,sim);
+   if(sim.boss&&sim.boss.phase==='arrival'&&f.state==='getup')R.draw(M.ring,M4.trs([f.x,.05,f.z],[Math.PI/2,0,0],[.84,.84,.04]),{tint:rgb('#80ecff'),unlit:true,blend:true,alpha:.65,depthWrite:false});
+  }
+  if(state!=='tutorial')this.drawCloud(sim);
+  if(sim.boss)this.drawBoss(sim.boss);
+  if(sim.boss?.attack==='charge')for(let i=0;i<sim.boss.targetPoints.length;i++){
+   let p=sim.boss.targetPoints[i],a=this.bossMuzzle||[sim.boss.x,1.65,sim.boss.z+1.8],b=[p.x,.5,p.z];
+   this.drawBeam(a,b,.012,'#ff884c',.38+.24*Math.sin(this.time*19));
+   R.draw(M.ring,M4.trs([p.x,.07,p.z],[Math.PI/2,0,0],[.78,.78,.04]),{tint:rgb('#ff9f58'),unlit:true,blend:true,alpha:.7,depthWrite:false});
+  }
+  for(let e of this.effects){
+   if(e.kind==='chip')R.draw(M.box,M4.trs([e.x,e.y,e.z],[e.life*7,e.life*9,0],[e.size,e.size,e.size]),{tint:rgb(e.color),alpha:Math.min(1,e.life*3)});
+   else if(e.kind==='beam')this.drawBeam(e.a,e.b,e.width,e.color,e.life/e.max);
+   else R.draw(M.plane,R.billboard([e.x,e.y,e.z],[1.12,1.12,1]),{texture:T.impact,unlit:true,blend:true,depthWrite:false,alpha:e.life/e.max});
+  }
  }
 }

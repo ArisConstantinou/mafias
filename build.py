@@ -22,12 +22,16 @@ for name in ['engine','world','game']:
 print(f'Built {len(s.encode())/1024/1024:.2f} MB single-file index.html')
 
 # Keep the imported brawl editable while publishing it as a standalone page.
-brawl_assets={p.name:data(p,{'mp3':'audio/mpeg','png':'image/png','svg':'image/svg+xml'}[p.suffix[1:]])
-              for p in sorted((ROOT/'assets').iterdir()) if p.suffix in ('.mp3','.png','.svg') and not p.name.startswith('mode-')}
+brawl_mime={'.mp3':'audio/mpeg','.png':'image/png','.svg':'image/svg+xml',
+            '.webp':'image/webp','.gz':'application/gzip','.json':'application/json'}
+brawl_assets={p.name:data(p,brawl_mime[p.suffix])
+              for p in sorted((ROOT/'assets').iterdir())
+              if p.suffix in brawl_mime and (p.name.startswith('boss-') or
+                 (p.suffix in ('.mp3','.png','.svg') and not p.name.startswith('mode-')))}
 brawl=(ROOT/'src'/'brawl'/'template.html').read_text(encoding='utf-8')
 brawl=brawl.replace('/*BRAWL_STYLE*/',(ROOT/'src'/'brawl'/'style.css').read_text(encoding='utf-8'))
 brawl=brawl.replace('/*BRAWL_ASSETS*/','window.BRAWL_ASSETS='+json.dumps(brawl_assets,ensure_ascii=False,separators=(',',':'))+';')
-for name in ['engine','combat','world','app']:
+for name in ['engine','combat','boss','world','app']:
     source=ROOT/'src'/'engine.js' if name=='engine' else ROOT/'src'/'brawl'/f'{name}.js'
     brawl=brawl.replace('/*BRAWL_'+name.upper()+'*/',source.read_text(encoding='utf-8'))
 (ROOT/'brawl.html').write_bytes(brawl.encode('utf-8'))

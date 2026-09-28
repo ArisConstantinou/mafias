@@ -106,8 +106,18 @@ with sync_playwright() as pw:
   start(mode)
   page.evaluate('code=>{let s=brawl.sim;eval(code);}',setup)
   page.evaluate('advanceTime(50)')
+  assert page.evaluate("brawl.sim.boss?.phase==='arrival' && !brawl.sim.finished"),mode
+  page.evaluate('advanceTime(4700)')
+  assert page.evaluate("brawl.sim.boss?.phase==='battle'"),mode
+  for tier in range(4):
+   page.evaluate("() => {let s=brawl.sim,p=s.fighters[0];while(s.boss.phase==='battle')s.bossFire(p,true);brawl.events();}")
+   assert page.evaluate('brawl.sim.boss.tier')==tier
+   if tier<3:
+    assert page.evaluate("brawl.sim.boss.phase==='resurrect'")
+    page.evaluate('advanceTime(3600)')
+    assert page.evaluate("brawl.sim.boss.phase==='battle'"),tier
+  page.evaluate('advanceTime(4500)')
   assert page.evaluate('brawl.sim.finished && brawl.sim.winner===0'),mode
-  page.evaluate('advanceTime(1200)')
   assert page.evaluate('brawl.state')=='results',mode
   assert page.locator('#scoreTable .scorerow').count()==5
   check('result_'+mode,{'winner':page.evaluate('brawl.sim.winner'),'rows':5})
