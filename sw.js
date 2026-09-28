@@ -1,5 +1,5 @@
 /* Optional hosted offline shell. The game itself is already self-contained. */
-const CACHE='volt-roast-v1.0.2';
+const CACHE='volt-roast-v1.0.3';
 const SHELL=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 self.addEventListener('install',event=>{event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(SHELL)).then(()=>self.skipWaiting()));});
 self.addEventListener('activate',event=>{event.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('volt-roast-')&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim()));});

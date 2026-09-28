@@ -319,7 +319,10 @@ class ScooterGame{
   await new Promise(resolve=>setTimeout(resolve,35));
   this.track=new CityTrack();this.world=new CityWorld(this.R,this.track);this.models={scooters:CREW.map(c=>this.R.mesh(makeScooter(c.color))),riders:CREW.map((c,i)=>this.R.mesh(makeRider(c.color,i))),wheel:this.R.mesh(makeWheel()),heads:[],halos:[]};
   for(let i=0;i<4;i++){let img=new Image();img.src=ASSETS.heads[i];await img.decode();this.models.heads.push(this.R.texture(img));let b=new MeshBuilder();b.add(torusGeo(40,7,.027),[0,0,0],[.70,.70,.65],[0,0,0],CREW[i].color,.9);this.models.halos.push(this.R.mesh(b));}
-  this.models.plane=this.R.mesh(new MeshBuilder().add('plane'));this.models.particle=this.R.mesh(new MeshBuilder().add('sphere',[0,0,0],[1,1,1],[0,0,0],'#ffffff',.9));this.models.bolt=this.R.mesh(new MeshBuilder().ball([0,0,0],[.1,.10,.37],'#ffffff'));
+  this.models.plane=this.R.mesh(new MeshBuilder().add('plane'));this.models.particle=this.R.mesh(new MeshBuilder().add('sphere',[0,0,0],[1,1,1],[0,0,0],'#ffffff',.9));
+  this.models.boltGlow=this.R.mesh(new MeshBuilder().ball([0,0,0],[.38,.36,1.05],'#ffffff'));
+  this.models.bolt=this.R.mesh(new MeshBuilder().ball([0,0,0],[.22,.20,.72],'#ffffff'));
+  this.models.boltCore=this.R.mesh(new MeshBuilder().ball([0,0,0],[.12,.12,.49],'#ffffff'));
   this.models.shadow=this.R.mesh(new MeshBuilder().add('cylinder',[0,.022,0],[.76,.012,1.48],[0,0,0],'#102c39'));
   this.models.ground=this.R.mesh(new MeshBuilder().box([0,-.13,0],[750,.20,750],'#8fa088'));
   this.models.items=makeItemModels(this.R);
@@ -384,6 +387,7 @@ class ScooterGame{
   if(r.hp<=0||(!automatic&&this.time<r.fireReady))return false;let len=Math.hypot(x,y)||1,vs=-y/len*38,vl=x/len*38;
   if(target){let ds=this.track.delta(target.s,r.s),dl=target.lane-r.lane,l=Math.hypot(ds,dl)||1;vs=ds/l*40;vl=dl/l*40;}
   if(!automatic)r.fireReady=this.time+.5;
+  r.shotFlashUntil=this.time+.13;r.shotVs=vs;r.shotVl=vl;
   this.bullets.push({s:r.s+vs/40*.9,lane:r.lane+vl/40*.9,y:r.y+1.04,vs,vl,owner:r.id,life:1.5,damage:automatic?3:4,target:target?.id??null,auto:automatic});
   if(V3.len(V3.sub(r.pos,this.player.pos))<28)this.audio.effect('fire');return true;
  }
@@ -465,11 +469,12 @@ class ScooterGame{
    R.draw(this.models.shadow,M4.trs([r.pos[0],0,r.pos[2]],[0,r.yaw,0]),{alpha:.30,depthWrite:false});let tint=r.hitUntil>this.time?[1.6,1.25,1.05]:r.hp<=0?[.6,.6,.63]:[1,1,1];R.draw(this.models.scooters[r.id],r.modelMatrix,{tint,alpha:opacity});R.draw(this.models.riders[r.id],r.modelMatrix,{tint,alpha:opacity});
    for(let z of[-.84,.84])R.draw(this.models.wheel,M4.mul(r.modelMatrix,M4.trs([0,.34,z],[r.s/.34,0,0])),{tint,alpha:opacity});
    R.draw(this.models.plane,M4.mul(r.modelMatrix,M4.trs([0,1.97,.379],[0,0,0],[.50,.25,1])),{texture:this.models.logo,blend:true,depthWrite:false});
+   if(r.shotFlashUntil>this.time){let f=this.track.frame(r.s+r.shotVs/40*2.2,r.lane+r.shotVl/40*2.2),p=f.p;p[1]=r.y+1.35;let fade=(r.shotFlashUntil-this.time)/.13;R.draw(this.models.boltGlow,M4.trs(p,[0,0,0],[.58,.58,.5]),{unlit:true,tint:rgb(r.hero.color),alpha:.5*fade,depthWrite:false});R.draw(this.models.boltCore,M4.trs(p,[0,0,0],[1,1,.8]),{unlit:true});}
    let h=r.headPos,m=R.billboard(h);R.draw(this.models.halos[r.id],m,{unlit:true,alpha:(r.hp<=0?.3:.96)*opacity,depthWrite:false});R.draw(this.models.plane,R.billboard([h[0],h[1],h[2]],[1.10,1.30,1]),{texture:this.models.heads[r.id],blend:true,unlit:true,alpha:opacity,tint:r.hp<=0?[.55,.55,.55]:[1,1,1]});
    if(r.boosting&&r.hp>0){let p=M4.point(r.modelMatrix,[0,.42,1.10]);R.draw(this.models.particle,M4.trs(p,[0,0,0],[.12,.10,.25+Math.random()*.4]),{tint:rgb(r.hero.color),unlit:true});}
    if(r.hp<28&&Math.random()<.13&&this.state==='racing'){let p=[r.pos[0],.65+r.y,r.pos[2]];this.addParticles(p,'#4d5f68',1,.5);}
   }
-  for(let b of this.bullets){let f=this.track.frame(b.s,b.lane),p=f.p;p[1]=b.y;R.draw(this.models.bolt,M4.trs(p,[0,f.yaw+Math.atan2(-b.vl,-b.vs),0]),{unlit:true,tint:rgb(CREW[b.owner].color)});}
+  for(let b of this.bullets){let f=this.track.frame(b.s,b.lane),p=f.p;p[1]=b.y;let angle=[0,f.yaw+Math.atan2(-b.vl,-b.vs),0],distance=V3.len(V3.sub(p,cam.eye)),scale=clamp(distance/17,1,2);R.draw(this.models.boltGlow,M4.trs(p,angle,[scale,scale,scale]),{unlit:true,tint:rgb(CREW[b.owner].color),alpha:.38,depthWrite:false});R.draw(this.models.bolt,M4.trs(p,angle,[scale,scale,scale]),{unlit:true,tint:rgb(CREW[b.owner].color)});R.draw(this.models.boltCore,M4.trs(p,angle,[scale,scale,scale]),{unlit:true});}
   for(let p of this.particles)R.draw(this.models.particle,M4.trs(p.p,[0,0,0],[p.size,p.size,p.size]),{tint:rgb(p.color),alpha:Math.min(1,p.life*3),unlit:true});
   if(['racing','countdown','paused'].includes(this.state)){this.projectUI();this.updateHUD();}
   $('hitFlash').style.opacity=this.hitFlash;$('speedLines').style.opacity=this.player.boosting&&this.state==='racing'?.22:0;
