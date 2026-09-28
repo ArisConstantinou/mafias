@@ -106,9 +106,17 @@ with sync_playwright() as pw:
         panel=page.locator('.showcase-info').bounding_box()
         assert panel['x']>=0 and panel['x']+panel['width']<=width+1
         assert panel['y']>=0 and panel['y']+panel['height']<=height+1
+        if name=='small':
+            actor=page.locator('.showcase-actor').bounding_box()
+            partner=page.locator('.showcase-target').bounding_box()
+            assert actor['x']+actor['width']<=partner['x']+1
         page.click('#closeHelp')
         page.evaluate("brawl.scenario('combat')")
         assert page.locator('.actions .combat:visible').count()==4
+        hold=page.locator('.combat.punch .hold-hint').bounding_box()
+        punch=page.locator('.combat.punch').bounding_box()
+        assert hold['x']>=punch['x'] and hold['x']+hold['width']<=punch['x']+punch['width']
+        assert page.locator('.combat.punch .hold-hint').evaluate('(el)=>getComputedStyle(el).fontSize')=='12px'
         page.screenshot(path=str(OUT/f'after-game-{name}.png'))
         context.close()
 
