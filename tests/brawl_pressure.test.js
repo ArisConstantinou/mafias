@@ -4,7 +4,7 @@ const {Sim} = require('../src/brawl/combat.js');
 function setup(defenderHp=65, attackerHp=55) {
   const sim = new Sim({ai:false, mode:'score', seed:7391});
   const defender=sim.fighters[0], attacker=sim.fighters[1];
-  defender.x=0;defender.z=0;defender.hp=defenderHp;
+  defender.x=0;defender.z=0;defender.hp=defenderHp;defender.demoIdle=true;
   attacker.x=1.2;attacker.z=0;attacker.hp=attackerHp;
   for(const f of sim.fighters.slice(2)){f.ko=true;f.hp=0;f.respawn=Infinity;}
   return {sim,defender,attacker};

@@ -1,12 +1,12 @@
-/* VOLT / ROAST — complete local game. No libraries, services, or tracking.
+/* 4 Mafias — complete local game. No libraries, services, or tracking.
    Track-space arcade physics uses a fixed timestep; rendering interpolates camera motion.
    Scooter health, pickups, collision damage, items and opponents share the same rules. */
 const $=id=>document.getElementById(id);
 const CREW=[
- {name:'VOLT',tag:'THE ORIGINAL',color:'#ffe341'},
- {name:'SPARK',tag:'SMALL. LOUD.',color:'#64efac'},
- {name:'FUSE',tag:'SMILE & STRIKE',color:'#ff646f'},
- {name:'SURGE',tag:'ZERO CHILL',color:'#68c9ff'}
+ {name:'Mahmud',tag:'THE ORIGINAL',color:'#ffe341'},
+ {name:'Mushu',tag:'SMALL. LOUD.',color:'#64efac'},
+ {name:'Billy',tag:'SMILE & STRIKE',color:'#ff646f'},
+ {name:'Kay',tag:'ZERO CHILL',color:'#68c9ff'}
 ];
 const ITEM_TYPES=['banana','pins','oil','box'];
 const ITEMS={
@@ -70,7 +70,18 @@ class ScooterGame{
  }catch(e){this.state='error';this.fatal(e.message);console.error(e);}}
  fatal(text){$('fatal').style.display='flex';$('fatalText').textContent=text;}
  buildMenu(){let heroes=$('heroes');heroes.innerHTML='';CREW.forEach((c,i)=>{let el=document.createElement('button');el.className='hero'+(i===this.selected?' selected':'');el.style.setProperty('--c',c.color);el.setAttribute('aria-label',`Select ${c.name}, photo character ${i+1}`);el.setAttribute('aria-pressed',String(i===this.selected));el.innerHTML=`<span class="tick">✓</span><div class="portrait"><img src="${ASSETS.heads[i]}" alt="Photo head ${i+1}"></div><strong>${c.name}</strong><small>${c.tag}</small>`;el.onclick=()=>{this.selected=i;safeSet(PLAYER_KEY,i);if(this.riders.length)this.player=this.riders[i];this.buildMenu();this.audio.tone(370+i*70,.1);};heroes.appendChild(el);});$('bestTime').textContent=safeGet('volt-roast-best',0)?`BEST ${this.formatTime(safeGet('volt-roast-best',0))}`:'OFFLINE READY';}
- selectGameMode(mode){this.gameMode=mode;for(let [id,value]of[['chooseScooter','scooter'],['chooseBrawl','brawl']]){let button=$(id),active=value===mode;button.classList.toggle('selected',active);button.setAttribute('aria-pressed',String(active));}$('scooterSetup').hidden=mode==='brawl';$('startBtn').querySelector('span').textContent=mode==='brawl'?'OPEN BRAWL SETUP':'LET IT RIP';$('menuKeyboardHint').textContent=mode==='brawl'?'KEYBOARD · WASD / arrows move · J punch · U heavy · K kick · L grab · E prop · Space dodge':'KEYBOARD · WASD drive · IJKL / arrows aim · Space fire · 1–4 throw · Esc pause';}
+ selectGameMode(mode){
+  this.gameMode=mode;let brawl=mode==='brawl';
+  for(let [id,value]of[['chooseScooter','scooter'],['chooseBrawl','brawl']]){let button=$(id),active=value===mode;button.classList.toggle('selected',active);button.setAttribute('aria-pressed',String(active));}
+  $('brawlBackdrop').classList.toggle('active',brawl);
+  $('menu').classList.toggle('brawl-mode',brawl);
+  $('scooterSetup').hidden=brawl;
+  $('startBtn').querySelector('span').textContent=brawl?'OPEN BRAWL SETUP':'LET IT RIP';
+  $('menuKeyboardHint').textContent=brawl?'KEYBOARD · WASD move · J punch · K kick · L grab · Q spin · E prop · Space dodge · stand still to block':'KEYBOARD · WASD drive · IJKL / arrows aim · Space fire · 1–4 throw · Esc pause';
+  $('routeEyebrow').textContent=brawl?'AFTER HOURS':'THE CIRCUIT';
+  $('routeName').textContent=brawl?'NK CREW YARD':'ELECTRIC AVENUE';
+  $('routeLength').textContent=brawl?'FOUR FIGHTERS / ONE YARD':`${Math.round(this.track.length)} M / MARKET / OLD QUARTER / POWER DISTRICT`;
+ }
  openBrawl(){safeSet(PLAYER_KEY,this.selected);location.href='./brawl.html?fighter='+this.selected;}
  bindUI(){
   $('startBtn').onclick=()=>this.gameMode==='brawl'?this.openBrawl():this.start();$('chooseScooter').onclick=()=>this.selectGameMode('scooter');$('chooseBrawl').onclick=()=>this.selectGameMode('brawl');document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>{this.mode=b.dataset.mode;document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('selected',x===b));});
@@ -209,7 +220,7 @@ class ScooterGame{
    for(let z of[-.84,.84])R.draw(this.models.wheel,M4.mul(r.modelMatrix,M4.trs([0,.34,z],[r.s/.34,0,0])),{tint,alpha:opacity});
    R.draw(this.models.plane,M4.mul(r.modelMatrix,M4.trs([0,1.97,.379],[0,0,0],[.50,.25,1])),{texture:this.models.logo,blend:true,depthWrite:false});
    if(r.shotFlashUntil>this.time){let f=this.track.frame(r.s+r.shotVs/40*2.2,r.lane+r.shotVl/40*2.2),p=f.p;p[1]=r.y+1.35;let fade=(r.shotFlashUntil-this.time)/.13;R.draw(this.models.boltGlow,M4.trs(p,[0,0,0],[.58,.58,.5]),{unlit:true,tint:rgb(r.hero.color),alpha:.5*fade,depthWrite:false});R.draw(this.models.boltCore,M4.trs(p,[0,0,0],[1,1,.8]),{unlit:true});}
-   let h=r.headPos,m=R.billboard(h);R.draw(this.models.halos[r.id],m,{unlit:true,alpha:(r.hp<=0?.3:.96)*opacity,depthWrite:false});R.draw(this.models.plane,R.billboard([h[0],h[1],h[2]],[1.10,1.30,1]),{texture:this.models.heads[r.id],blend:true,unlit:true,alpha:opacity,tint:r.hp<=0?[.55,.55,.55]:[1,1,1]});
+   let h=r.headPos,m=R.billboard(h);R.draw(this.models.halos[r.id],m,{unlit:true,alpha:(r.hp<=0?.3:.96)*opacity,depthWrite:false});R.draw(this.models.plane,R.billboard([h[0],h[1],h[2]],[1.30,1.54,1]),{texture:this.models.heads[r.id],blend:true,unlit:true,alpha:opacity,tint:r.hp<=0?[.55,.55,.55]:[1,1,1]});
    if(r.boosting&&r.hp>0){let p=M4.point(r.modelMatrix,[0,.42,1.10]);R.draw(this.models.particle,M4.trs(p,[0,0,0],[.12,.10,.25+Math.random()*.4]),{tint:rgb(r.hero.color),unlit:true});}
    if(r.hp<28&&Math.random()<.13&&this.state==='racing'){let p=[r.pos[0],.65+r.y,r.pos[2]];this.addParticles(p,'#4d5f68',1,.5);}
   }
