@@ -52,6 +52,13 @@ Original prompt: Publish the supplied VOLT-ROAST-source.zip at arisconstantinou.
 - Pending at this checkpoint: remove only generated test outputs, commit the focused candidate, promote and verify the fixed 5174 route, push, and verify Pages deployment. Original ZIP and photographic assets remain untouched.
 - The first candidate was published as `e54ecd1`; the fixed 5174 route, Pages file hashes, new service-worker cache, live mobile showcase and offline round-trip passed. A final readability pass raised the new compact labels to at least 12 px, made the Heavy hold hint fit in 64–76 px touch targets, and checked the 360x780 pause menu plus 844x390 landscape. Focused behavior tests and paired frame pacing passed again before the follow-up release.
 
+2026-09-28 Brawl menu background transition:
+- Request: selecting Brawl on the shared mode menu should smoothly change the background from the Scooter street to the Brawl yard.
+- Protected baseline: clean `main` at `262b608`, served by the existing 5174 Python process. Candidate was developed in the managed `brawl-menu-background` worktree; no second server or port was started.
+- Captured desktop and portrait backgrounds from the actual Brawl 3D menu at 1600x900 and 430x932. They are stored in `assets/menu-brawl-yard*.jpg` and embedded into the standalone `index.html`. No supplied photo or original ZIP was modified.
+- The Brawl card starts a 0.95-second circular reveal with a slight zoom and glow; Scooter reverses it. The route badge follows the selection. Reduced-motion preference switches immediately. Captures are in `.qa-run/mode-transition/`.
+- Full-page Chrome screenshots verified desktop, 430x932 portrait and 844x390 landscape; both mode routes and reverse selection worked without page errors. Brawl integration and Scooter regression passed. Paired Windows Chrome samples during selection: 1600x900 p95 4.3 ms before/after, 430x932 p95 4.3/4.4 ms, zero frames above 33 ms. Physical phone performance remains unverified. Published separately as `892f9c5` before this combined candidate.
+
 2026-09-28 portrait readability and 4 Mafias naming candidate:
 - Protected baseline: clean `main` at `262b608` stays on port 5174. Changes are isolated in the managed `codex/face-readability` worktree. The original group JPEG remains byte-for-byte unchanged outside the public repository; its SHA-256 is `BC7CF9C73FC8FB68FBE234A03CD9E8700CDBC4B3B9347A4E4CE452DC33996A15`.
 - Portrait mapping from that photograph, left to right in the games: head-1 Mahmud (standing upper left), head-2 Mushu (seated lower left), head-3 Billy (seated center), head-4 Kay (standing upper right). Existing character IDs, colors, and abilities stay assigned to the same people. Both modes and the PWA display `4 Mafias`.
