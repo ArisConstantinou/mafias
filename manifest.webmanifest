@@ -1,7 +1,7 @@
 {
-  "name": "VOLT / ROAST — Scooter Insult Battle",
+  "name": "VOLT / ROAST — Scooter + Brawl",
   "short_name": "VOLT ROAST",
-  "description": "Four photo-head riders, two thumb sticks and a city full of bad decisions. Offline single-player scooter battle racing.",
+  "description": "Choose a fighter for the offline scooter battle race or the 3D worksite brawl.",
   "id": "./",
   "start_url": "./",
   "scope": "./",

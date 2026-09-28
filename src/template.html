@@ -39,6 +39,17 @@
 #settingsScreen{z-index:21}
 .stick-wrap .stick-title{font-size:10px;letter-spacing:.9px;min-height:13px}.stick-wrap.engaged .stick-title{color:var(--yellow);text-shadow:0 0 10px #ffe341aa}.stick-wrap.engaged .stick{border-color:var(--yellow);box-shadow:0 0 0 3px #ffe34130,inset 0 0 22px #ffe34118}.stick-wrap.engaged .knob{border-color:var(--yellow);background:linear-gradient(140deg,#ffe341a8,#3a5366d0)}
 @media(orientation:landscape) and (max-height:540px){#dialogueCaption{top:10px;max-width:min(340px,calc(100vw - 340px));font-size:11px;padding:5px 9px}}
+
+.game-mode-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.game-mode-card{min-width:0;min-height:91px;display:flex;align-items:center;gap:10px;padding:8px;text-align:left;border:2px solid var(--line);border-radius:15px;background:rgba(25,46,59,.92);transition:transform .15s,border-color .15s,background .15s}
+.game-mode-card:hover{transform:translateY(-2px);background:#263f4c}
+.game-mode-card.selected{border-color:var(--yellow);background:#304354;box-shadow:0 0 0 1px #ffe34144}
+.game-mode-card img{width:70px;height:70px;flex:none;object-fit:cover;border-radius:10px}
+.game-mode-card strong{display:block;font-size:14px;letter-spacing:1px;font-weight:950;line-height:1.15}
+.game-mode-card small{display:block;margin-top:5px;font-size:11px;line-height:1.25;color:#c1d0c9}
+#scooterSetup[hidden]{display:none}
+@media(max-width:700px){#menu{align-items:flex-start}.game-mode-card{min-height:86px}.game-mode-card img{width:60px;height:60px}}
+@media(max-width:390px){.game-mode-cards{gap:7px}.game-mode-card{gap:7px;padding:6px}.game-mode-card img{width:52px;height:52px}.game-mode-card strong{font-size:12px}.game-mode-card small{font-size:10px}}
 </style>
 </head>
 <body>
@@ -48,8 +59,13 @@
 <h1 class="brand">VOLT <em>/</em> <span>ROAST</span></h1><p class="subtitle">SCOOTER INSULT BATTLE</p>
 <p class="tagline">Small wheels. Big egos. Race the city, wreck rival scooters and let the Bangla insults fly.</p>
 <div class="section-label">01 / PICK YOUR RIDER <small>Same scooter. Different attitude.</small></div><div id="heroes" class="heroes"></div>
-<div class="section-label">02 / CHOOSE YOUR CHAOS</div>
-<div class="modes"><button class="mode selected" data-mode="clash"><strong><span class="mode-icon">⚑</span> STREET CLASH</strong><small>Finish 2 laps first.<br>Or be the last scooter running.</small></button><button class="mode" data-mode="survival"><strong><span class="mode-icon">ϟ</span> LAST SCOOTER</strong><small>No finish-line escape.<br>Outlast all three rivals.</small></button></div>
+<div class="section-label">02 / CHOOSE YOUR MODE <small>One crew, two games.</small></div>
+<div class="game-mode-cards" role="group" aria-label="Choose game mode">
+ <button type="button" id="chooseScooter" class="game-mode-card selected" aria-pressed="true"><img src="/*MODE_SCOOTER_ICON*/" alt="Scooter racer in the city"><span><strong>SCOOTER</strong><small>Race, aim &amp; throw</small></span></button>
+ <button type="button" id="chooseBrawl" class="game-mode-card" aria-pressed="false"><img src="/*MODE_BRAWL_ICON*/" alt="Brawl fighters in the yard"><span><strong>BRAWL</strong><small>Fight in the yard</small></span></button>
+</div>
+<div id="scooterSetup"><div class="section-label">03 / SCOOTER RULES</div>
+<div class="modes"><button class="mode selected" data-mode="clash"><strong><span class="mode-icon">⚑</span> STREET CLASH</strong><small>Finish 2 laps first.<br>Or be the last scooter running.</small></button><button class="mode" data-mode="survival"><strong><span class="mode-icon">ϟ</span> LAST SCOOTER</strong><small>No finish-line escape.<br>Outlast all three rivals.</small></button></div></div>
 <button id="startBtn" class="start" disabled><span>BUILDING THE CITY…</span><svg viewBox="0 0 24 24"><path d="M4 12h16m-6-6 6 6-6 6"/></svg></button>
 <div class="menu-footer"><button class="text-button" id="helpBtn"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.6 2.6 0 0 1 5 .9c0 1.7-2.5 1.9-2.5 3.5M12 17h.01"/></svg>HOW TO PLAY</button><button class="text-button" id="settingsBtn"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 17h16M8 4v6M16 14v6"/></svg>SETTINGS</button><span class="text-button" id="bestTime">OFFLINE READY</span></div>
 <div class="warning">Strong language at high heat. Bangla speech + Greek subtitles.<br>Photo-head characters • synthetic game voices, not the people’s real voices.</div><div id="loadStatus" class="load-status">Preparing your crew…</div>

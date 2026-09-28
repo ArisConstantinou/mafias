@@ -1,14 +1,14 @@
-VOLT / ROAST — SCOOTER INSULT BATTLE
-Playable build 1.0.3 · 28 September 2026
+VOLT / ROAST — SCOOTER + BRAWL
+Playable build 1.1.0 · 28 September 2026
 
 START HERE
-Open index.html in a full desktop browser. Everything needed for gameplay is
-embedded inside that HTML: the renderer, city, character cutouts, item images,
-and all 24 synthetic Bangla voice clips. No engine download, account, API key,
-build command, or Internet connection is required for that standalone file.
-On Windows, START-WINDOWS.bat opens the same file in your default browser.
+Open index.html to choose a fighter and a game mode. SCOOTER plays in index.html;
+BRAWL opens brawl.html for its rules and 3D worksite fight. Keep both files
+together for the mode switch. Each HTML file embeds its own game code, artwork
+and audio and can play offline without an account, API key or engine download.
+On Windows, START-WINDOWS.bat opens the mode menu in your default browser.
 
-This is one local human player against three computer-controlled rivals.
+Both modes have one local human player against three computer-controlled rivals.
 It does NOT include online multiplayer, real-time voice chat, or cloned voices.
 The cutout heads come from the four central people in the supplied photograph;
 VOLT, SPARK, FUSE and SURGE are fictional game nicknames, not identifications.
@@ -17,7 +17,7 @@ with a colored round halo. They are not reconstructed 3D face scans.
 
 MOBILE / HOSTING
 The layout supports portrait and landscape touch controls. For a browser link,
-host this folder as a static website. index.html alone runs the game; sw.js,
+host this folder as a static website. sw.js caches both game pages;
 manifest.webmanifest and the app icons add hosted offline-shell support.
 Public site: https://arisconstantinou.github.io/mafias/
 GitHub Pages serves the `mafias` repository from the root of `main`. netlify.toml remains an
@@ -31,7 +31,9 @@ The server binds only to this computer (127.0.0.1), not the local network.
 This Codex project's fixed local address is http://127.0.0.1:5174/.
 
 HOW TO PLAY
-Choose one of the four riders, then choose a mode and press LET IT RIP.
+Choose one of the four photo-head players, then choose SCOOTER or BRAWL from
+the illustrated cards. The selected player follows you between games. SCOOTER
+has Street Clash and Last Scooter rules; choose one and press LET IT RIP.
 The scooter accelerates automatically. Both hands remain on its handlebars.
 
 Left joystick: left/right to steer, up to boost, down to brake.
@@ -50,6 +52,16 @@ Arrow keys      Aim and fire the electric blaster.
 Space           Fire; defaults forward unless an aiming direction is held.
 1 / 2 / 3 / 4   Throw banana / pins / oil / toolbox behind.
 Escape          Pause / resume.
+
+BRAWL MODE
+The Brawl menu offers Last One Standing, a 90-second Score Brawl with respawns,
+and The Crown. Pick a rival difficulty, then ENTER THE YARD. Use the left touch
+stick or WASD to move. The six right-side buttons punch, heavy punch, kick,
+grab/counter, dodge and pick up/throw a prop. On desktop: J punch, U heavy,
+K kick, L grab/counter, Space dodge and E pick up/throw. Actions can be used
+with the movement stick at the same time. Pause, results and the Brawl menu
+offer a return to the shared mode menu. Brawl settings and best score use
+separate local storage; fighter choice is shared with Scooter.
 
 ITEMS AND SCOOTER DAMAGE
 Every scooter starts with 100 health. Hits damage scooters, with non-graphic
@@ -114,12 +126,15 @@ src/engine.js      Dependency-free WebGL renderer, mesh builder and math.
 src/world.js       Closed city circuit, architecture, scooters, bodies and props.
 src/game.js        Physics, AI, items, damage, dialogue, audio, controls and HUD.
 src/template.html HTML/CSS interface and insertion points for bundled scripts.
+src/brawl/       Editable Brawl interface, combat, world and app; both modes
+                  use src/engine.js as their WebGL renderer.
 assets/           Four transparent heads, four item illustrations, dialogue,
-                  and the 24 embedded synthetic-speech source files.
-build.py          Rebuilds index.html using Python's standard library only.
+                  24 voice files and two captured WebP game-mode thumbnails.
+imports/VOLT-BRAWL-3D.html  Exact imported Brawl source for recovery.
+build.py          Rebuilds index.html and brawl.html with Python's standard library.
 
 After editing source or assets, run `python build.py`. Do not edit only the
-bundled HTML if you intend to keep the source project in sync. Original photo
+bundled HTML files if you intend to keep the source project in sync. Original photo
 processing / speech-generation tools are not needed to rebuild this project.
 No font files are bundled.
 
@@ -128,6 +143,8 @@ tools, not game dependencies. CHROMIUM_EXECUTABLE may specify a browser binary.
 For local development on Windows: create a virtual environment, install
 `requirements-dev.txt`, then run `python tests/regression.py`. The test scripts
 find an installed Chrome or Edge browser; CHROMIUM_EXECUTABLE can override it.
+Run `python tests/brawl_integration.py` for the shared fighter, Brawl combat,
+win screens and two-finger mobile controls.
 The regression script
 writes screenshots and JSON reports under `tests/`; use a disposable copy if
 you want to preserve the supplied baseline captures.
