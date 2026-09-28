@@ -80,18 +80,19 @@ class BrawlScene{
  resize(w,h,quality='auto'){this.quality=quality;let d=devicePixelRatio||1,r=quality==='low'?.8:quality==='high'?Math.min(d,1.75):Math.min(d,1.2);this.R.resize(w,h,r);this.camera=null;}
  matrix(pos,rot=[0,0,0],scale=[1,1,1]){return M4.trs(pos,rot,scale);}
  drawPart(mesh,parent,p,r=[0,0,0],s=[1,1,1],opt={}){let m=M4.mul(parent,M4.trs(p,r,s));this.R.draw(mesh,m,opt);return m;}
- drawFighter(f,sim){let R=this.R,M=this.mesh,c=M.fighters[f.id],color=BRAWL_COLORS[f.id];let prone=['down','ko'].includes(f.state),getup=f.state==='getup',duck=f.state==='dodge',strike=BrawlSim.ATTACKS[f.state],p=strike?f.age/(strike.wind+strike.active+strike.recovery):0;
+  drawFighter(f,sim){let R=this.R,M=this.mesh,c=M.fighters[f.id],color=BRAWL_COLORS[f.id];let prone=['down','ko','groundGrabbed'].includes(f.state),getup=f.state==='getup',duck=f.state==='dodge',strike=BrawlSim.ATTACKS[f.state],p=strike?f.age/(strike.wind+strike.active+strike.recovery):0;
   let root=M4.trs([f.x,f.y,f.z],[0,f.yaw,0]);let dim=f.ko?.56:1;
   this.shadow(f.x,f.z,1.55,f.ko?.15:.65);
   if(f.cloud)return;
   let bob=f.speed>.2?Math.abs(Math.sin(f.walk))*.075:Math.sin(this.time*3.4+f.id)*.022;
-  let tilt=0,h=-.02+bob;if(prone){tilt=-Math.PI/2;h=.3;}else if(getup){let q=smooth(0,.5,f.age);tilt=-Math.PI/2*(1-q);h=.3*(1-q);}else if(duck){tilt=.50;h=-.4;}else if(f.state==='hit'){tilt=-.22*Math.sin(f.age/.24*Math.PI);}else if(f.state==='heavy'){tilt=-.16*Math.sin(p*Math.PI*2);}else if(f.state==='grabbed'){tilt=-.13;h=.1;}
+   let tilt=0,h=-.02+bob;if(prone){tilt=-Math.PI/2;h=.3;}else if(getup){let q=smooth(0,.5,f.age);tilt=-Math.PI/2*(1-q);h=.3*(1-q);}else if(duck){tilt=.50;h=-.4;}else if(f.state==='hit'){tilt=-.22*Math.sin(f.age/.24*Math.PI);}else if(f.state==='shoved'){tilt=-.38*Math.sin(Math.min(1,f.age/.48)*Math.PI);h=-.10;}else if(f.state==='push'){tilt=.16*Math.sin(Math.min(1,f.age/.42)*Math.PI);}else if(f.state==='heavy'){tilt=-.16*Math.sin(p*Math.PI*2);}else if(f.state==='grabbed'){tilt=-.13;h=.1;}
   root=M4.mul(root,M4.trs([0,h,0],[tilt,0,0]));let opts={tint:[dim,dim,dim]};R.draw(c.body,root,opts);this.drawPart(M.plane,root,[-.20,1.62,.274],[0,0,0],[.23,.23,1],{texture:this.texture.logo,unlit:true});
   // Hierarchical shoulders / elbows / wrists. No camera rotation is applied to hands.
   let walk=Math.sin(f.walk)*Math.min(1,f.speed/2.3),still=f.speed<.25;
   for(let side of[-1,1]){let shoulderX=-.36+walk*.22*side,elbowX=-1.20,shoulderZ=-side*.13,wrist=0;
    if(f.held!==null||f.state==='pickup'||f.state==='throw'){shoulderX=f.state==='throw'?-.6-Math.sin(Math.min(1,f.age/.30)*Math.PI)*1.3:-1.1;elbowX=-.72;shoulderZ=-side*.25;}
-   if(f.state==='grabbing'||f.state==='grabbed'||f.state==='slam'){shoulderX=-1.25;elbowX=-.48;shoulderZ=-side*.14;}
+    if(f.state==='grabbing'||f.state==='groundGrabbing'||f.state==='grabbed'||f.state==='slam'){shoulderX=f.state==='groundGrabbing'?-1.65:-1.25;elbowX=-.48;shoulderZ=-side*.14;}
+    if(f.state==='push'){shoulderX=-1.75;elbowX=-.24;shoulderZ=-side*.09;}
    if(f.state==='counter'){shoulderX=-1.12;elbowX=-1.22;shoulderZ=side*.21;}
    if(strike&&f.state!=='kick'&&side===f.attackSide){let t=clamp((f.age-strike.wind*.45)/(strike.wind*.55+strike.active*.3),0,1),recover=smooth(strike.wind+strike.active,strike.wind+strike.active+strike.recovery,f.age);let reach=Math.sin(t*Math.PI/2)*(1-recover);shoulderX=lerp(.35,-1.63,reach);elbowX=lerp(-1.45,-.10,reach);shoulderZ=side*(f.state==='heavy'?-.35:-.05);wrist=-.3*reach;}
    if(prone){shoulderX=.3;elbowX=-.5;shoulderZ=-side*.5;}
@@ -110,6 +111,7 @@ class BrawlScene{
  }
  shadow(x,z,size,alpha=.55){this.R.draw(this.mesh.plane,M4.trs([x,.005,z],[Math.PI/2,0,0],[size,size,1]),{texture:this.texture.shadow,blend:true,unlit:true,alpha,depthWrite:false});}
  onEvent(e,sim){if(e.type==='hit'){this.shake=Math.max(this.shake,e.heavy?.12:.045);for(let j=0;j<(this.quality==='low'?5:10);j++)this.effects.push({kind:'chip',x:e.x,y:1.4,z:e.z,vx:(this.random()-.5)*5,vy:2+this.random()*3,vz:(this.random()-.5)*5,life:.40+this.random()*.3,max:.7,color:BRAWL_COLORS[e.id],size:.035+this.random()*.04});if(e.cloud){let angle=this.random()*Math.PI*2;this.pops.push({id:e.id,angle,life:.88,max:.88,rotate:(this.random()-.5)*.6});}this.effects.push({kind:'impact',x:e.x,y:1.8,z:e.z,life:.15,max:.15});}
+   if(e.type==='autoPush'){this.shake=Math.max(this.shake,e.strong?.10:.055);this.effects.push({kind:'impact',x:e.x,y:1.35,z:e.z,life:.2,max:.2});}
   if(e.type==='ko'){let f=sim.fighters[e.id];if(sim.cloud.active)this.pops.push({id:e.id,angle:this.random()*Math.PI*2,life:1.15,max:1.15,rotate:.50});}
   if(e.type==='break')for(let i=0;i<15;i++)this.effects.push({kind:'chip',x:e.x,y:.7,z:e.z,vx:(this.random()-.5)*5,vy:2+this.random()*4,vz:(this.random()-.5)*5,life:1,max:1,color:'#bd9260',size:.08});
  }
@@ -125,14 +127,14 @@ class BrawlScene{
   // Periodic peeks only alter rendering; they never add damage or select random victims.
   if(this.pops.length<2){let id=c.members[Math.floor(t*1.4)%c.members.length],f=sim.fighters[id],a=t*.63,peek=Math.sin((t*1.4%1)*Math.PI);if(f&&!displayed.has(id)){let pos=[c.x+Math.sin(a)*1.9,2.10+peek*.95,c.z+Math.cos(a)*1.1];this.drawHead(f,pos,.96,sim,Math.sin(t*4)*.15);f.renderHead=pos;}}
  }
- render(sim,dt,state='playing'){this.updateVisual(dt);let R=this.R,M=this.mesh,T=this.texture,player=sim.fighters[sim.selected],portrait=R.w/R.h<.9;let focus=sim.cloud.active&&player.cloud?[sim.cloud.x,sim.cloud.z]:[player.x,player.z];if(state==='menu')focus=[0,0];let tx=focus[0]*.46,tz=focus[1]*.36;let k=this.camera?1-Math.exp(-dt*4):1;this.center[0]+= (tx-this.center[0])*k;this.center[1]+=(tz-this.center[1])*k;
-  let base=portrait?[0,14.8,17.8]:[0,10.5,14.5],target=[this.center[0],.3,this.center[1]-.7],eye=[this.center[0]+base[0],base[1],this.center[1]+base[2]];if(!this.reduced&&state==='playing'){eye[0]+=Math.sin(this.time*74)*this.shake;eye[1]+=Math.cos(this.time*65)*this.shake;}
+  render(sim,dt,state='playing'){this.updateVisual(dt);let R=this.R,M=this.mesh,T=this.texture,player=sim.fighters[sim.selected],portrait=R.w/R.h<.9;let focus=sim.cloud.active&&player.cloud?[sim.cloud.x,sim.cloud.z]:[player.x,player.z];if(state==='menu')focus=[0,0];let sidePanel=state==='tutorial'&&!portrait;let tx=sidePanel?3.6:focus[0]*.46,tz=focus[1]*.36;let k=this.camera?1-Math.exp(-dt*4):1;this.center[0]+= (tx-this.center[0])*k;this.center[1]+=(tz-this.center[1])*k;
+   let base=portrait?[0,14.8,17.8]:sidePanel?[0,8.2,10.8]:[0,10.5,14.5],target=[this.center[0],.3,this.center[1]-.7],eye=[this.center[0]+base[0],base[1],this.center[1]+base[2]];if(!this.reduced&&state==='playing'){eye[0]+=Math.sin(this.time*74)*this.shake;eye[1]+=Math.cos(this.time*65)*this.shake;}
   this.camera=eye;R.begin(eye,target,portrait?53:54);R.draw(M.ground,M4.id(),{texture:T.concrete});R.draw(M.world);for(let l of this.labels)R.draw(M.plane,M4.trs(l.p,l.rot,l.s),{texture:l.tex});R.draw(M.plane,M4.trs([0,.013,0],[-Math.PI/2,0,0],[9,9,1]),{texture:T.decal,blend:true,unlit:true,depthWrite:false});
   if(state!=='menu'){let col=BRAWL_COLORS[player.id];R.draw(M.ring,M4.trs([player.x,.027,player.z],[Math.PI/2,0,0],[.73,.73,.025]),{tint:rgb(col),unlit:true});let nearest=sim.nearestItem(player);if(nearest&&Math.hypot(nearest.x-player.x,nearest.z-player.z)<1.9&&player.held===null&&!player.ko)R.draw(M.ring,M4.trs([nearest.x,.055,nearest.z],[Math.PI/2,0,this.time],[.51,.51,.022]),{tint:rgb('#f5df88'),unlit:true});}
   // Props have their own physical positions and rotations, not emoji billboards.
   for(let o of sim.items){if(o.broken)continue;let scale=o.type==='mop'?.80:1;this.shadow(o.x,o.z,.8,.45);let rot=[o.flying?o.spin:0,o.flying?o.spin*.7:o.yaw,0];let p=[o.x,o.y,o.z];if(o.held!==null){let f=sim.fighters[o.held];p=[f.x+Math.sin(f.yaw)*.8,f.y+1.55,f.z+Math.cos(f.yaw)*.8];rot=[-.24,f.yaw,0];}R.draw(M.props[o.type],M4.trs(p,rot,[scale,scale,scale]));}
   if(sim.mode==='crown'&&sim.crown.holder===null){this.shadow(sim.crown.x,sim.crown.z,1,.6);R.draw(M.crown,M4.trs([sim.crown.x,.45+Math.sin(this.time*3)*.13,sim.crown.z],[0,this.time,0],[1.35,1.35,1.35]));}
-  for(let f of sim.fighters)this.drawFighter(f,sim);this.drawCloud(sim);
+  for(let f of sim.fighters)if(state!=='tutorial'||f.id<2)this.drawFighter(f,sim);if(state!=='tutorial')this.drawCloud(sim);
   for(let e of this.effects){if(e.kind==='chip')R.draw(M.box,M4.trs([e.x,e.y,e.z],[e.life*7,e.life*9,0],[e.size,e.size,e.size]),{tint:rgb(e.color),alpha:Math.min(1,e.life*3)});else R.draw(M.plane,R.billboard([e.x,e.y,e.z],[1.12,1.12,1]),{texture:T.impact,unlit:true,blend:true,depthWrite:false,alpha:e.life/e.max});}
  }
 }

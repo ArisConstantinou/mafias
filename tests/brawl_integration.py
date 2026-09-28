@@ -129,6 +129,9 @@ with sync_playwright() as pw:
  active=page.evaluate('VOLT_BRAWL_TEST.input()')
  assert active['joy']['x']>.8 and 'punch' in active['actions']
  before=page.evaluate('brawl.sim.fighters[0].x')
+ # On touch, a short release punches; holding this button charges Heavy.
+ cdp.send('Input.dispatchTouchEvent',{'type':'touchEnd','touchPoints':[point(2,px,py)]})
+ assert page.evaluate('VOLT_BRAWL_TEST.input()')['joy']['x']>.8
  page.evaluate('advanceTime(600)')
  after=page.evaluate('brawl.sim.fighters[0].x')
  hp=page.evaluate('brawl.sim.fighters[1].hp')

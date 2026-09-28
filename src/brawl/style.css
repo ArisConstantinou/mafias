@@ -11,5 +11,53 @@
 
 .dialog-row button{min-height:44px}
 .menu-keyboard{font-size:12px;line-height:1.45;color:#e7eddb;margin:12px 0 0}
+#helpButton{border:1px solid #f4d75f9c;border-radius:6px;background:#27434a;padding:9px 12px;font-size:11px;color:#ffedaa;min-height:44px}
 @media(min-width:1100px) and (min-height:600px){.keyboardhint{font-size:12px;letter-spacing:0;color:#f0f2dc}}
 @media(max-width:650px),(max-height:500px){.menu-keyboard{display:none}}
+
+/* One clear action cluster for touch. The desktop keyboard and six-key layout stay visible. */
+body.mobile-controls .actions{grid-template-columns:repeat(2,76px);gap:10px}
+body.mobile-controls .combat{width:76px;height:76px;border-width:2px;box-shadow:0 5px 15px #10232b88}
+body.mobile-controls .combat b{font-size:11px;letter-spacing:.25px}
+body.mobile-controls .combat svg{width:30px;height:30px}
+body.mobile-controls .combat.heavy,body.mobile-controls .combat.pick{display:none}
+body.mobile-controls .combat.punch{grid-column:2;grid-row:1;background:#4b4a3ff2;border-color:#f6d56b}
+body.mobile-controls .combat.kick{grid-column:2;grid-row:2}
+body.mobile-controls .combat.dodge{grid-column:1;grid-row:2}
+body.mobile-controls .combat.grab{grid-column:1;grid-row:1;background:#344958f2;border-color:#b4dce9}
+body.mobile-controls .combat.charging{box-shadow:0 0 0 4px #f6d56b88,0 5px 15px #10232b88}
+body.mobile-controls .combat.grab b{font-size:10px}
+.actions-caption{display:none}
+body.mobile-controls .actions-caption{display:block;position:absolute;left:0;top:-21px;color:#f0e4b6;font-size:11px;font-weight:850;letter-spacing:1px;text-shadow:0 1px 3px #17313b}
+.hold-hint{display:none}
+body.mobile-controls .hold-hint{display:block;font-size:9px;line-height:1;color:#ffe8a1;z-index:1}
+body.mobile-controls .combat.punch{gap:2px}
+@media(max-width:375px) and (min-height:501px){body.mobile-controls .actions{grid-template-columns:repeat(2,68px);gap:8px}body.mobile-controls .combat{width:68px;height:68px}}
+@media(max-height:500px){body.mobile-controls .actions{grid-template-columns:repeat(2,64px);gap:7px}body.mobile-controls .combat{width:64px;height:64px}body.mobile-controls .combat b{font-size:9px}}
+
+.showcase-screen{z-index:25;background:linear-gradient(180deg,#142c351c 0%,#142c3530 40%,#10272fdb 100%);backdrop-filter:none;-webkit-backdrop-filter:none;display:none;flex-direction:column;justify-content:flex-end;padding:16px;overflow:hidden;user-select:none;-webkit-user-select:none}
+.showcase-screen.visible{display:flex}
+.showcase-panel{width:min(660px,100%);margin:0 auto;pointer-events:auto;color:#f6efda}
+.showcase-top{display:flex;align-items:center;justify-content:space-between;padding:0 2px 9px;text-shadow:0 2px 5px #132a33}
+.showcase-top button,.showcase-nav button{border:1px solid #e9dca47a;background:#1a3642ed;border-radius:7px;color:#f5e8c9;font-size:12px;font-weight:850;min-height:44px;padding:8px 13px;touch-action:manipulation}
+.showcase-stage{height:clamp(170px,30vh,270px);position:relative;pointer-events:none}
+.showcase-actor,.showcase-target{position:absolute;bottom:16px;background:#162e38dc;border:1px solid #f6d56b73;border-radius:5px;padding:7px 10px;font-size:11px;font-weight:900;letter-spacing:.6px}
+.showcase-actor{left:19%;color:#f6d56b}.showcase-target{right:17%;color:#aadbe7}
+.showcase-info{background:#142f3bee;border:1px solid #f4dfa167;border-radius:15px;padding:17px 20px 13px;box-shadow:0 18px 50px #0619239c;max-height:min(52vh,390px);overflow-y:auto;touch-action:pan-y}
+#showcaseCount{font-size:11px;font-weight:900;letter-spacing:1.5px;color:#f6d56b}
+.showcase-info h2{font-size:clamp(25px,5vw,36px);line-height:1;margin:5px 0 7px;color:#fff1bd}
+.showcase-info>p{font-size:15px;line-height:1.35;margin:0 0 8px;color:#e2ebdf}
+.showcase-control{display:inline-block;padding:7px 10px;border-radius:5px;background:#f5d971;color:#19323c;font-size:13px;font-weight:900}
+.showcase-nav{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:12px}
+.showcase-nav button{font-size:11px;padding:7px 5px;background:#244451}
+.showcase-nav button:disabled{opacity:.45}
+.showcase-nav #showcaseNext{background:#f4d66c;color:#19323c;border-color:#f4d66c}
+.showcase-select-label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;font-weight:850;letter-spacing:.7px;color:#c8d8d1;margin-top:9px}
+.showcase-select-label select{font-size:12px;min-height:38px;max-width:63%;background-color:#102932}
+.showcase-rules{border-top:1px solid #d7d5b938;margin-top:10px;padding-top:9px}
+.showcase-rules summary{font-size:11px;font-weight:850;letter-spacing:.5px;min-height:32px;cursor:pointer}
+.showcase-rules .help-grid{max-height:240px;overflow-y:auto}
+.showcase-rules .fineprint{font-size:10px;color:#aec4bb}
+@media(max-width:650px) and (min-height:501px){.showcase-screen{padding:12px 12px max(12px,env(safe-area-inset-bottom))}.showcase-top{padding-bottom:5px}.showcase-top .eyebrow{font-size:11px}.showcase-stage{height:clamp(120px,24vh,210px)}.showcase-actor,.showcase-target{bottom:8px;font-size:9px;padding:5px}.showcase-actor{left:25%}.showcase-target{right:8%}.showcase-info{max-height:48vh;padding:13px 14px 10px}.showcase-info h2{font-size:27px}.showcase-info>p{font-size:14px}.showcase-control{font-size:12px}.showcase-nav button{font-size:10px}.showcase-rules .help-grid{grid-template-columns:1fr}}
+@media(min-width:900px) and (min-height:501px){.showcase-screen{flex-direction:row;align-items:center;justify-content:flex-end;padding:20px 30px}.showcase-panel{width:min(430px,36vw);margin:0;display:flex;flex-direction:column}.showcase-stage{display:none}.showcase-info{max-height:calc(100vh - 100px)}}
+@media(max-height:500px){.showcase-screen{flex-direction:row;align-items:stretch;justify-content:flex-end;padding:8px max(8px,env(safe-area-inset-right))}.showcase-panel{display:flex;flex-direction:column;width:min(360px,45%);height:100%;margin:0}.showcase-top{padding-bottom:5px}.showcase-top .eyebrow{font-size:9px}.showcase-top button{font-size:9px;min-height:34px}.showcase-stage{display:none}.showcase-info{max-height:none;flex:1;padding:10px 12px}.showcase-info h2{font-size:23px}.showcase-info>p{font-size:12px}.showcase-control{font-size:11px;padding:5px 7px}.showcase-nav{gap:4px;margin-top:7px}.showcase-nav button{font-size:9px;min-height:36px}.showcase-select-label{font-size:9px;margin-top:5px}.showcase-select-label select{min-height:32px}}
