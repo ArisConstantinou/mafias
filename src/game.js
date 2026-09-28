@@ -70,7 +70,20 @@ class ScooterGame{
  }catch(e){this.state='error';this.fatal(e.message);console.error(e);}}
  fatal(text){$('fatal').style.display='flex';$('fatalText').textContent=text;}
  buildMenu(){let heroes=$('heroes');heroes.innerHTML='';CREW.forEach((c,i)=>{let el=document.createElement('button');el.className='hero'+(i===this.selected?' selected':'');el.style.setProperty('--c',c.color);el.setAttribute('aria-label',`Select ${c.name}, photo character ${i+1}`);el.setAttribute('aria-pressed',String(i===this.selected));el.innerHTML=`<span class="tick">✓</span><div class="portrait"><img src="${ASSETS.heads[i]}" alt="Photo head ${i+1}"></div><strong>${c.name}</strong><small>${c.tag}</small>`;el.onclick=()=>{this.selected=i;safeSet(PLAYER_KEY,i);if(this.riders.length)this.player=this.riders[i];this.buildMenu();this.audio.tone(370+i*70,.1);};heroes.appendChild(el);});$('bestTime').textContent=safeGet('volt-roast-best',0)?`BEST ${this.formatTime(safeGet('volt-roast-best',0))}`:'OFFLINE READY';}
- selectGameMode(mode){this.gameMode=mode;for(let [id,value]of[['chooseScooter','scooter'],['chooseBrawl','brawl']]){let button=$(id),active=value===mode;button.classList.toggle('selected',active);button.setAttribute('aria-pressed',String(active));}$('scooterSetup').hidden=mode==='brawl';$('startBtn').querySelector('span').textContent=mode==='brawl'?'OPEN BRAWL SETUP':'LET IT RIP';$('menuKeyboardHint').textContent=mode==='brawl'?'KEYBOARD · WASD / arrows move · J punch · U heavy · K kick · L grab · E prop · Space dodge':'KEYBOARD · WASD drive · IJKL / arrows aim · Space fire · 1–4 throw · Esc pause';}
+ selectGameMode(mode){
+  this.gameMode=mode;let brawl=mode==='brawl';
+  for(let [id,value]of[['chooseScooter','scooter'],['chooseBrawl','brawl']]){
+   let button=$(id),active=value===mode;button.classList.toggle('selected',active);button.setAttribute('aria-pressed',String(active));
+  }
+  $('brawlBackdrop').classList.toggle('active',brawl);
+  $('menu').classList.toggle('brawl-mode',brawl);
+  $('scooterSetup').hidden=brawl;
+  $('startBtn').querySelector('span').textContent=brawl?'OPEN BRAWL SETUP':'LET IT RIP';
+  $('menuKeyboardHint').textContent=brawl?'KEYBOARD · WASD / arrows move · J punch · U heavy · K kick · L grab · E prop · Space dodge':'KEYBOARD · WASD drive · IJKL / arrows aim · Space fire · 1–4 throw · Esc pause';
+  $('routeEyebrow').textContent=brawl?'AFTER HOURS':'THE CIRCUIT';
+  $('routeName').textContent=brawl?'NK CREW YARD':'ELECTRIC AVENUE';
+  $('routeLength').textContent=brawl?'FOUR FIGHTERS / ONE YARD':`${Math.round(this.track.length)} M / MARKET / OLD QUARTER / POWER DISTRICT`;
+ }
  openBrawl(){safeSet(PLAYER_KEY,this.selected);location.href='./brawl.html?fighter='+this.selected;}
  bindUI(){
   $('startBtn').onclick=()=>this.gameMode==='brawl'?this.openBrawl():this.start();$('chooseScooter').onclick=()=>this.selectGameMode('scooter');$('chooseBrawl').onclick=()=>this.selectGameMode('brawl');document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>{this.mode=b.dataset.mode;document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('selected',x===b));});
