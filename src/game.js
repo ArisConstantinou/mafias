@@ -70,7 +70,7 @@ class ScooterGame{
  }catch(e){this.state='error';this.fatal(e.message);console.error(e);}}
  fatal(text){$('fatal').style.display='flex';$('fatalText').textContent=text;}
  buildMenu(){let heroes=$('heroes');heroes.innerHTML='';CREW.forEach((c,i)=>{let el=document.createElement('button');el.className='hero'+(i===this.selected?' selected':'');el.style.setProperty('--c',c.color);el.setAttribute('aria-label',`Select ${c.name}, photo character ${i+1}`);el.setAttribute('aria-pressed',String(i===this.selected));el.innerHTML=`<span class="tick">✓</span><div class="portrait"><img src="${ASSETS.heads[i]}" alt="Photo head ${i+1}"></div><strong>${c.name}</strong><small>${c.tag}</small>`;el.onclick=()=>{this.selected=i;safeSet(PLAYER_KEY,i);if(this.riders.length)this.player=this.riders[i];this.buildMenu();this.audio.tone(370+i*70,.1);};heroes.appendChild(el);});$('bestTime').textContent=safeGet('volt-roast-best',0)?`BEST ${this.formatTime(safeGet('volt-roast-best',0))}`:'OFFLINE READY';}
- selectGameMode(mode){this.gameMode=mode;for(let [id,value]of[['chooseScooter','scooter'],['chooseBrawl','brawl']]){let button=$(id),active=value===mode;button.classList.toggle('selected',active);button.setAttribute('aria-pressed',String(active));}$('scooterSetup').hidden=mode==='brawl';$('startBtn').querySelector('span').textContent=mode==='brawl'?'OPEN BRAWL SETUP':'LET IT RIP';}
+ selectGameMode(mode){this.gameMode=mode;for(let [id,value]of[['chooseScooter','scooter'],['chooseBrawl','brawl']]){let button=$(id),active=value===mode;button.classList.toggle('selected',active);button.setAttribute('aria-pressed',String(active));}$('scooterSetup').hidden=mode==='brawl';$('startBtn').querySelector('span').textContent=mode==='brawl'?'OPEN BRAWL SETUP':'LET IT RIP';$('menuKeyboardHint').textContent=mode==='brawl'?'KEYBOARD · WASD / arrows move · J punch · U heavy · K kick · L grab · E prop · Space dodge':'KEYBOARD · WASD drive · IJKL / arrows aim · Space fire · 1–4 throw · Esc pause';}
  openBrawl(){safeSet(PLAYER_KEY,this.selected);location.href='./brawl.html?fighter='+this.selected;}
  bindUI(){
   $('startBtn').onclick=()=>this.gameMode==='brawl'?this.openBrawl():this.start();$('chooseScooter').onclick=()=>this.selectGameMode('scooter');$('chooseBrawl').onclick=()=>this.selectGameMode('brawl');document.querySelectorAll('.mode').forEach(b=>b.onclick=()=>{this.mode=b.dataset.mode;document.querySelectorAll('.mode').forEach(x=>x.classList.toggle('selected',x===b));});
@@ -81,7 +81,7 @@ class ScooterGame{
   for(let[k,id]of[['fx','fxSetting'],['voice','voiceSetting'],['dialogue','dialogueSetting'],['strong','strongSetting'],['perf','perfSetting']]){$(id).checked=this.settings[k];$(id).onchange=()=>{this.settings[k]=$(id).checked;safeSet('volt-roast-settings',this.settings);if(k==='voice'&&!this.settings.voice)this.audio.stop();};}
   $('qualitySetting').value=this.settings.quality;$('qualitySetting').onchange=()=>{this.settings.quality=$('qualitySetting').value;safeSet('volt-roast-settings',this.settings);this.resize();};
   ITEM_TYPES.forEach((type,i)=>{let b=document.createElement('button');b.className='item-btn';b.id='item-'+type;b.style.setProperty('--item',ITEMS[type].color);b.setAttribute('aria-label',`Throw ${ITEMS[type].name.toLowerCase()} behind: ${ITEMS[type].desc}`);b.title=`${i+1}: ${ITEMS[type].desc}. Throws behind your scooter.`;b.innerHTML=`<img src="${ASSETS.items[type]}" alt="${ITEMS[type].name}"><span class="item-count">${ITEMS[type].stock}</span><span class="item-name">${ITEMS[type].name}</span><span class="item-timer"></span>`;b.addEventListener('pointerdown',e=>{e.preventDefault();e.stopPropagation();this.audio.unlock();if(this.state==='racing')this.throwItem(this.player,type);});b.addEventListener('click',e=>{if(e.detail===0&&this.state==='racing')this.throwItem(this.player,type);});$('itemButtons').appendChild(b);});
-  window.addEventListener('keydown',e=>{if(['KeyA','KeyD','KeyW','KeyS','ShiftLeft','ShiftRight','Space','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Escape','Digit1','Digit2','Digit3','Digit4'].includes(e.code)){if(['INPUT','SELECT'].includes(document.activeElement.tagName))return;e.preventDefault();if(e.code==='Escape'&&!e.repeat){if(this.state==='paused')this.resume();else if(['racing','countdown'].includes(this.state))this.pause();}if(/^Digit[1-4]$/.test(e.code)&&!e.repeat&&this.state==='racing')this.throwItem(this.player,ITEM_TYPES[Number(e.code.at(-1))-1]);this.keys.add(e.code);}});
+  window.addEventListener('keydown',e=>{if(['KeyA','KeyD','KeyW','KeyS','KeyI','KeyJ','KeyK','KeyL','ShiftLeft','ShiftRight','Space','ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Escape','Digit1','Digit2','Digit3','Digit4'].includes(e.code)){if(['INPUT','SELECT'].includes(document.activeElement.tagName))return;e.preventDefault();if(e.code==='Escape'&&!e.repeat){if(this.state==='paused')this.resume();else if(['racing','countdown'].includes(this.state))this.pause();}if(/^Digit[1-4]$/.test(e.code)&&!e.repeat&&this.state==='racing')this.throwItem(this.player,ITEM_TYPES[Number(e.code.at(-1))-1]);this.keys.add(e.code);}});
   window.addEventListener('keyup',e=>this.keys.delete(e.code));window.addEventListener('blur',()=>{this.resetInput();if(['racing','countdown'].includes(this.state))this.pause();});document.addEventListener('visibilitychange',()=>{if(document.hidden&&['racing','countdown'].includes(this.state))this.pause();});
  }
  show(id){$(id).classList.add('visible');}hide(id){$(id).classList.remove('visible');}openSettings(){this.show('settingsScreen');}
@@ -146,7 +146,7 @@ class ScooterGame{
   if(r.punctureUntil>this.time)target*=.61;if(r.skidUntil>this.time)target*=.78;
   r.speed=lerp(r.speed,target,1-Math.exp(-dt*(brake?3.7:2.2)));r.laneV=lerp(r.laneV,steer*(r.boosting?8.4:7.4),1-Math.exp(-dt*(r.skidUntil>this.time?1.7:7)));
   let turn=steer>.18?'RIGHT':steer<-.18?'LEFT':'';this.stickFeedback('left',r.boosting?`BOOST${turn?' + '+turn:''}`:brake?`BRAKE${turn?' + '+turn:''}`:turn?`STEER ${turn}`:'LEFT · DRIVE',!!(turn||r.boosting||brake));
-  let rs=this.sticks.right,ax=rs.x+(k.has('ArrowRight')?1:0)-(k.has('ArrowLeft')?1:0),ay=rs.y+(k.has('ArrowDown')?1:0)-(k.has('ArrowUp')?1:0),firing=Math.hypot(ax,ay)>.24||k.has('Space');if(firing){if(Math.hypot(ax,ay)<.2){ax=0;ay=-1;}this.fire(r,ax,ay);$('reticle').style.opacity=.75;}else $('reticle').style.opacity=0;
+  let rs=this.sticks.right,ax=rs.x+(k.has('ArrowRight')||k.has('KeyL')?1:0)-(k.has('ArrowLeft')||k.has('KeyJ')?1:0),ay=rs.y+(k.has('ArrowDown')||k.has('KeyK')?1:0)-(k.has('ArrowUp')||k.has('KeyI')?1:0),firing=Math.hypot(ax,ay)>.24||k.has('Space');if(firing){if(Math.hypot(ax,ay)<.2){ax=0;ay=-1;}this.fire(r,ax,ay);$('reticle').style.opacity=.75;}else $('reticle').style.opacity=0;
   let arrow=ay<-.25?(ax>.25?'↗':ax<-.25?'↖':'↑'):ay>.25?(ax>.25?'↘':ax<-.25?'↙':'↓'):ax>.25?'→':ax<-.25?'←':'↑';this.stickFeedback('right',firing?'FIRE '+arrow:'RIGHT · AIM/FIRE',firing);
  }
  controlAI(r,dt){
@@ -166,6 +166,7 @@ class ScooterGame{
   if(!['racing','countdown'].includes(this.state))return;
   this.time+=dt;
   if(this.state==='countdown'){this.phaseTime-=dt;let n=Math.ceil(this.phaseTime);$('countdown').innerHTML=n>0?`${n}<small>HOLD YOUR LINE</small>`:'GO!';if(n!==this.countBeep){this.countBeep=n;this.audio.effect(n>0?'tick':'go');}if(this.phaseTime<-.55){this.state='racing';$('countdown').style.display='none';this.toast('DODGE. THROW BEHIND. OUTLAST.',2.7);}return;}
+  for(let r of this.riders)r.previous={s:r.s,lane:r.lane,y:r.y,roll:r.roll,laneV:r.laneV};
   this.raceTime+=dt;
   for(let r of this.riders){
    if(r.hp<=0){r.speed=Math.max(0,r.speed-dt*6);r.s+=r.speed*dt;r.roll=lerp(r.roll,r.id%2?.8:-.8,dt*2);continue;}
@@ -198,7 +199,9 @@ class ScooterGame{
   let f=this.track.frame(r.s,r.lane),speed=r.speed,b=this.portrait?9.4:8.5,look=this.track.frame(r.s+6,r.lane*.76).p,eye=V3.add(f.p,V3.add(V3.mul(f.t,-b-speed*.025),V3.mul(f.right,this.portrait?.45:.65)));eye[1]=5.0+r.y*.38;look[1]=1.15;
   let factor=1-Math.exp(-dt*8);if(!this.cameraEye){this.cameraEye=eye;this.cameraTarget=look;}else{this.cameraEye=V3.mix(this.cameraEye,eye,factor);this.cameraTarget=V3.mix(this.cameraTarget,look,factor);}let e=[...this.cameraEye];if(this.shake>0)for(let i=0;i<2;i++)e[i]+=(Math.random()-.5)*this.shake;return{eye:e,target:this.cameraTarget,fov:this.portrait?65:63+(r.boosting?3:0)};
  }
- render(dt){let R=this.R;this.updatePositions();let cam=this.camera(dt);R.begin(cam.eye,cam.target,cam.fov);R.draw(this.models.ground);this.world.draw(cam.eye,this.time);
+ render(dt,alpha=1){let saved=null;
+  if(this.state==='racing'&&alpha<1){saved=this.riders.map(r=>({r,s:r.s,lane:r.lane,y:r.y,roll:r.roll,laneV:r.laneV}));for(let p of saved){let r=p.r,prev=r.previous;if(!prev)continue;r.s=lerp(prev.s,p.s,alpha);r.lane=lerp(prev.lane,p.lane,alpha);r.y=lerp(prev.y,p.y,alpha);r.roll=lerp(prev.roll,p.roll,alpha);r.laneV=lerp(prev.laneV,p.laneV,alpha);}}
+  let R=this.R;this.updatePositions();let cam=this.camera(dt);R.begin(cam.eye,cam.target,cam.fov);R.draw(this.models.ground);this.world.draw(cam.eye,this.time);
   for(let p of this.world.pickups){if(p.type!=='supply'||p.ready>this.time)continue;let f=this.track.frame(p.s,p.lane);if(V3.len(V3.sub(f.p,cam.eye))>90)continue;f.p[1]=.9+Math.sin(this.time*2.7+p.id)*.17;R.draw(this.models.items.supply,M4.trs(f.p,[0,this.time*1.3,0]));}
   for(let t of this.traps){let p=this.track.frame(t.s,t.lane).p;p[1]=t.y+.025;if(V3.len(V3.sub(p,cam.eye))>95)continue;if(t.landed){let radius=ITEMS[t.type].radius+Math.sin(this.time*4)*.025;R.draw(this.models.items.hazardRing,M4.trs([p[0],0,p[2]],[0,0,0],[radius,1,radius]),{tint:rgb(ITEMS[t.type].color),alpha:.65,unlit:true,depthWrite:false});}R.draw(this.models.items[t.type],M4.trs(p,[t.landed?0:t.age*8,t.landed?t.id:t.age*4,0],t.landed?[1,1,1]:[.9,.9,.9]),{alpha:t.life<2?clamp(t.life/2,.15,1):1});}
   for(let r of this.riders){let cameraDistance=V3.len(V3.sub(r.pos,cam.eye));if(cameraDistance>145||(this.state==='menu'&&r!==this.player))continue;let opacity=r!==this.player&&cameraDistance<7?clamp((cameraDistance-2)/5,.10,1):1;
@@ -215,6 +218,7 @@ class ScooterGame{
   if(['racing','countdown','paused'].includes(this.state)){this.projectUI();this.updateHUD();}
   $('hitFlash').style.opacity=this.hitFlash;$('speedLines').style.opacity=this.player.boosting&&this.state==='racing'?.22:0;
   this.audio.update(this.player.speed,this.state==='racing'||this.state==='countdown');
+  if(saved){for(let p of saved){let r=p.r;r.s=p.s;r.lane=p.lane;r.y=p.y;r.roll=p.roll;r.laneV=p.laneV;}this.updatePositions();}
  }
  projectUI(){let bounds=[],w=this.R.w,h=this.R.h;
   $('dialogueCaption').style.opacity=this.compactDialogue&&this.settings.dialogue&&this.captionUntil>this.time?1:0;
@@ -251,7 +255,7 @@ class ScooterGame{
   if(won&&reason==='finish'){let old=safeGet('volt-roast-best',0);if(!old||this.raceTime<old)safeSet('volt-roast-best',this.raceTime);}
  }
  frame(clock){let raw=Math.min(.10,Math.max(0,(clock-this.lastClock)/1000));this.lastClock=clock;this.frameCount++;if(clock-this.lastFpsTime>=900){this.fps=this.frameCount*1000/(clock-this.lastFpsTime);this.frameCount=0;this.lastFpsTime=clock;if(this.settings.quality==='auto'&&this.fps<38&&this.R.pixelRatio>.70){this.R.resize(innerWidth,innerHeight,Math.max(.70,this.R.pixelRatio-.15));}}
-  this.acc+=raw;let n=0;while(this.acc>=1/60&&n++<6){this.update(1/60);this.acc-=1/60;}this.render(Math.max(1/240,raw));requestAnimationFrame(t=>this.frame(t));
+  this.acc+=raw;let n=0;while(this.acc>=1/60&&n++<6){this.update(1/60);this.acc-=1/60;}this.render(Math.max(1/240,raw),clamp(this.acc*60,0,1));requestAnimationFrame(t=>this.frame(t));
  }
  snapshot(){return{state:this.state,mode:this.mode,time:+this.raceTime.toFixed(2),trackLength:Math.round(this.track.length),fps:Math.round(this.fps),triangles:this.R?.tris,draws:this.R?.draws,winner:this.winner,riders:this.riders.map(r=>({id:r.id,name:r.hero.name,s:+r.s.toFixed(2),lane:+r.lane.toFixed(2),hp:+r.hp.toFixed(2),hits:r.hits,heat:heatFor(r.hits),inventory:{...r.inventory},itemHits:r.itemHits,skidUntil:r.skidUntil,punctureUntil:r.punctureUntil})),traps:this.traps.map(t=>({type:t.type,s:t.s,lane:t.lane,landed:t.landed,owner:t.owner})),bullets:this.bullets.length,voicesDecoded:Object.keys(this.audio.buffers).length};}
 }

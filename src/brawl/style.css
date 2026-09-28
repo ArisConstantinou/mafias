@@ -10,3 +10,6 @@
 .mode-return:hover{background:#2a4d56}
 
 .dialog-row button{min-height:44px}
+.menu-keyboard{font-size:12px;line-height:1.45;color:#e7eddb;margin:12px 0 0}
+@media(min-width:1100px) and (min-height:600px){.keyboardhint{font-size:12px;letter-spacing:0;color:#f0f2dc}}
+@media(max-width:650px),(max-height:500px){.menu-keyboard{display:none}}
