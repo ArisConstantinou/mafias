@@ -8,4 +8,6 @@ Original prompt: Publish the supplied VOLT-ROAST-source.zip at arisconstantinou.
 - Regression checks passed in a disposable `.qa-run/` copy, including both controls, damage, pickups, win states, and desktop/mobile screenshots.
 - Fixed test browser flags: Linux ANGLE GL flags caused a lost WebGL context and blank scene on Windows Chrome. Native Windows Chrome rendering shows the full city; rerun regression passed without JavaScript errors.
 - Local performance sample on RTX 5080 Windows Chrome: 60 FPS at 1280x800 and 430x932, 124k-126k triangles and 64-70 draw calls. This is not a physical mobile measurement.
-- Pending: GitHub Pages publication, live URL verification, and Codex project registration.
+- GitHub Pages publication verified at `https://arisconstantinou.github.io/mafias/`; live index hash matched the local build, desktop and mobile browser interactions passed, and the service worker scope is `/mafias/`.
+- Codex local project `mafia` is registered against this folder. The `mafias` GitHub repository is the remote for `main`.
+- Optional next checks for future work: physical iPhone/Android performance and Safari audio/PWA behavior; native-speaker review of the Bangla lines.

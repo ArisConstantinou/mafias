@@ -19,8 +19,9 @@ MOBILE / HOSTING
 The layout supports portrait and landscape touch controls. For a browser link,
 host this folder as a static website. index.html alone runs the game; sw.js,
 manifest.webmanifest and the app icons add hosted offline-shell support.
-The provided netlify.toml describes a static deployment; nothing has been
-published or uploaded to an external host as part of this delivery.
+Public site: https://arisconstantinou.github.io/mafias/
+GitHub Pages serves the `mafias` repository from the root of `main`. netlify.toml remains an
+optional alternative static-host configuration.
 Hosting the game publicly also publishes the four photo-head assets.
 An iPhone attachment preview is not the intended game runtime. Physical iPhone
 performance and installation have not been tested in this build.

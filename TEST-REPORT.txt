@@ -36,10 +36,21 @@ resolution controls so actual device performance can be measured.
 NOT VERIFIED
 - Physical iPhone / Android hardware frame rate, Safari audio behavior or PWA
   installation and cache lifecycle.
-- Public hosting / deployment: no external site was created.
 - Online multiplayer: it is not implemented in this single-player build.
 - Human-naturalness of the synthetic speech or native-speaker translation review.
 
 Screenshots use the real renderer. Action screenshots use a controlled gameplay
 state to inspect the heads, hazards, health bars, and subtitle placement.
 See tests/regression.json and tests/performance.json for recorded details.
+
+PUBLICATION VERIFICATION — 28 SEPTEMBER 2026
+The source was imported into the public `mafias` repository and GitHub Pages
+served https://arisconstantinou.github.io/mafias/ with HTTP 200. The served
+index.html SHA-256 matched the local rebuilt output:
+B62AD0FE102738BB94AE9ABAB98818969359EDBF340F8F68DCC976A342E4C4DE.
+Live Chromium checks at 1280 x 800 and 430 x 932 reached the racing state,
+decoded all 24 voice clips, displayed the WebGL city, reported no JavaScript
+page errors, and registered the service worker under /mafias/.
+The Windows desktop performance sample reached 60 FPS at both tested viewports
+on an NVIDIA RTX 5080 with Chrome Direct3D11. This does not establish physical
+mobile performance.
