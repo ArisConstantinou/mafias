@@ -1,4 +1,4 @@
-/* SCARAT finale: deterministic, renderer-independent phase and combat rules. */
+/* Crimson Boss finale: deterministic, renderer-independent phase and combat rules. */
 (function(){
 'use strict';
 const Sim=BrawlSim.Sim;
@@ -50,7 +50,7 @@ Sim.prototype.beginBoss=function(roundWinner){
   cooldown:3.0,shots:0,targetIds:[],targetPoints:[],targetCursor:0,attackSerial:0,
   chaseTargetId:0,chaseAge:0,chaseTime:0,battleTime:0,stride:0,moving:0,
   pursuitClock:0,aimHold:0,avoidSide:1,
-  clawOpen:.2,grabbed:null};
+  clawOpen:.2,grabbed:null,hitVisual:0,visualHitSerial:0};
  for(let item of this.items)item.broken=true;
  for(let f of this.fighters){
   this.releaseGrab(f);this.dropItem(f);
@@ -93,6 +93,7 @@ Sim.prototype.bossFire=function(f,heavy=false){
  this.emit('laserShot',{id:f.id,x:f.x,z:f.z,toX:block?.x??end.x,toZ:block?.z??end.z,heavy,damage:applied,blocked:!!block,outOfRange});
  if(block||outOfRange)return;
  b.hp=Math.max(0,b.hp-damage);
+ if(heavy&&b.attack==='idle'){b.hitVisual=.28;b.visualHitSerial++;}
  if(b.hp<=0){
   b.phase=b.tier<3?'resurrect':'dead';b.age=0;b.attack='idle';b.grabbed=null;
   b.nextMaxHp=b.tier<3?health[b.tier+1]:0;
@@ -129,6 +130,7 @@ Sim.prototype.bossBeam=function(shot){
 
 Sim.prototype.bossStep=function(dt){
  let b=this.boss;b.age+=dt;
+ b.hitVisual=Math.max(0,(b.hitVisual||0)-dt);
  if(b.phase==='arrival'){
   for(let f of this.fighters){
    let begin=1.95+f.id*.19;

@@ -102,7 +102,7 @@ class BrawlApp{
    if(e.type==='comboReady'&&e.id===this.selected)this.toast(e.move==='heavyKick'?'HEAVY KICK READY':'HEAVY PUNCH READY',1.5);
    if(e.type==='dizzy'){this.makePop('DIZZY!',e.id,'#ffe17a');if(e.id===this.selected)this.toast('DIZZY · STAMINA EMPTY',1.5);}
    if(e.type==='autoBlock')this.makePop('BLOCK',e.id,'#a9e5e8');
-   if(e.type==='ko'){let by=e.boss?'SCARAT':e.by===undefined?'THE YARD':BrawlSim.NAMES[e.by];this.addFeed(by+' knocked out '+BrawlSim.NAMES[e.id]);this.makePop('K.O.!',e.id,'#f9d568');if(e.id===this.selected&&(this.mode==='last'||this.sim.boss))this.toast("You're out. Watch the finish or start a new round.",3);}
+   if(e.type==='ko'){let by=e.boss?'CRIMSON':e.by===undefined?'THE YARD':BrawlSim.NAMES[e.by];this.addFeed(by+' knocked out '+BrawlSim.NAMES[e.id]);this.makePop('K.O.!',e.id,'#f9d568');if(e.id===this.selected&&(this.mode==='last'||this.sim.boss))this.toast("You're out. Watch the finish or start a new round.",3);}
    if(e.type==='cloudStart')this.toast('TOTAL CHAOS · THE CREW IS IN!',1.25);
    if(e.type==='perfectCounter'){this.makePop('COUNTER!',e.id,'#b4e2ef');if(e.id===this.selected)this.toast('PERFECT COUNTER',1.3);}
     if(e.type==='autoPush'){this.makePop(e.strong?'DOWN!':'PUSH!',e.target,'#f9db75');if(e.id===this.selected)this.toast(e.strong?'THEY ARE DOWN · GRAB THEM NOW':'AUTO PUSH · SPACE TO BREATHE',1.7);}
@@ -113,19 +113,19 @@ class BrawlApp{
    if(e.type==='slip')this.makePop('SLIP!',e.id,'#d9e68a');
    if(e.type==='rage'){this.makePop('RAGE!',e.id,'#ffca61');if(e.id===this.selected)this.toast('RAGE HIT · EXTRA POWER',1.2);}
    if(e.type==='crownPickup')this.addFeed(BrawlSim.NAMES[e.id]+' took the crown');if(e.type==='crownDrop')this.addFeed(BrawlSim.NAMES[e.id]+' dropped the crown');if(e.type==='respawn')this.addFeed(BrawlSim.NAMES[e.id]+' is back in');if(e.type==='hint')this.toast(e.text,1.8);
-   if(e.type==='bossStart'){document.body.classList.add('boss-mode');$('bossHud').hidden=false;this.toast('SCARAT IS DESCENDING · THE CREW RISES TOGETHER',2.2);this.addFeed('SCARAT enters the yard');}
-   if(e.type==='bossLand')this.toast('IMPACT · SCARAT HAS LANDED',1.5);
+   if(e.type==='bossStart'){document.body.classList.add('boss-mode');$('bossHud').hidden=false;this.toast('CRIMSON IS DESCENDING · THE CREW RISES TOGETHER',2.2);this.addFeed('CRIMSON enters the yard');}
+   if(e.type==='bossLand')this.toast('IMPACT · CRIMSON HAS LANDED',1.5);
    if(e.type==='bossRevive')this.makePop('REVIVED',e.id,'#8aeaff');
    if(e.type==='bossBattle')this.toast('USE COVER AND HIGH GROUND · FIRE TOGETHER',2.5);
    if(e.type==='bossCharge')this.toast('CANNON CHARGING · MOVE OR DODGE',1.1);
-   if(e.type==='bossClawWind')this.toast('CLAW REACHING · DODGE AWAY',.9);
+   if(e.type==='bossClawWind')this.toast('GRAB REACHING · DODGE AWAY',.9);
    if(e.type==='bossSlamWind')this.toast('GROUND SMASH · RETREAT OR TAKE HIGH GROUND',1.1);
    if(e.type==='bossSlam')this.toast('SHOCKWAVE · GET CLEAR',.9);
    if(e.type==='bossGrab')this.makePop('GRABBED!',e.id,'#ffc075');
-   if(e.type==='bossCollapse')this.toast('SCARAT DOWN · WATCH THE REACTOR',2.0);
-   if(e.type==='bossRebuild')this.toast('REACTOR REBUILD · SCARAT RISES AGAIN',2.0);
-   if(e.type==='bossResurrected')this.toast('SCARAT RETURNS · STAGE '+(e.tier+1),2.0);
-   if(e.type==='bossFinalFall')this.toast('SCARAT IS FINALLY FALLING',2.0);
+   if(e.type==='bossCollapse')this.toast('CRIMSON DOWN · WATCH THE REACTOR',2.0);
+   if(e.type==='bossRebuild')this.toast('REACTOR REBUILD · CRIMSON RISES AGAIN',2.0);
+   if(e.type==='bossResurrected')this.toast('CRIMSON RETURNS · STAGE '+(e.tier+1),2.0);
+   if(e.type==='bossFinalFall')this.toast('CRIMSON IS FINALLY FALLING',2.0);
    if(e.type==='bossLaugh')this.toast('HA · HA · HA · THE CREW IS GONE',3.1);
    if(e.type==='finish'){this.state='ending';this.resultDue=this.uiClock+1.1;this.resetInput();}
   }}
@@ -139,14 +139,14 @@ class BrawlApp{
    $('bossHealthValue').textContent=Math.ceil(hp)+' / '+Math.ceil(max);
    $('bossPhaseLabel').textContent=b.phase==='arrival'?'DESCENDING':b.phase==='resurrect'?'REASSEMBLING':b.phase==='dead'?'FINAL COLLAPSE':b.phase==='laugh'?'VICTORY LAUGH':'STAGE '+(b.tier+1)+' / 4';
    $('bossResurrections').textContent=b.phase==='resurrect'?'RESURRECTION '+(b.tier+1)+' / 3':(3-b.tier)+' RESURRECTIONS REMAIN';
-   $('modeTitle').textContent='SCARAT · FINAL BATTLE';$('clock').textContent=this.format(s.time);
+   $('modeTitle').textContent='CRIMSON · FINAL BATTLE';$('clock').textContent=this.format(s.time);
    $('condition').textContent=p.ko?'OUT':s.condition(p);$('staminaValue').textContent=Math.round(p.stamina);$('staminaBar').style.width=p.stamina+'%';
-   $('rageBar').style.width='0%';$('rageLabel').textContent='LASER CREW';$('heldItem').textContent=p.ko?'WEAPON LOST':'LASER CARBINE READY';$('revenge').textContent='SCARAT TARGETS THE WHOLE CREW';
+   $('rageBar').style.width='0%';$('rageLabel').textContent='LASER CREW';$('heldItem').textContent=p.ko?'WEAPON LOST':'LASER CARBINE READY';$('revenge').textContent='CRIMSON TARGETS THE WHOLE CREW';
    $('objective').textContent=s.fighters.filter(f=>!f.ko).length+' CREW ALIVE · DEFEAT ALL 4 STAGES';$('cloudBadge').hidden=true;
    $('spectator').hidden=!(p.ko&&!s.finished);
    let laserFar=Math.hypot(p.x-b.x,p.z-b.z)>BrawlSim.BOSS_LASER_RANGE;
    document.body.classList.toggle('laser-out-of-range',laserFar);
-   $('punchLabel').textContent='FIRE';$('kickLabel').textContent='POWER';$('actionGuide').textContent=laserFar?'MOVE WITHIN 7.5m TO HIT SCARAT':'J FIRE · K POWER SHOT · DODGE THE CANNON';
+   $('punchLabel').textContent='FIRE';$('kickLabel').textContent='POWER';$('actionGuide').textContent=laserFar?'MOVE WITHIN 7.5m TO HIT CRIMSON':'J FIRE · K POWER SHOT · DODGE THE CANNON';
    document.querySelector('.keyboardhint').textContent='WASD MOVE · J FIRE · K POWER SHOT · SPACE DODGE · ESC PAUSE';
    document.querySelectorAll('[data-action]').forEach(button=>{let action=button.dataset.action,disabled=p.ko||b.phase!=='battle'||p.weaponCooldown>0||(action==='kick'&&p.stamina<25)||(action==='dodge'&&p.stamina<18);button.classList.toggle('unavailable',!!disabled);button.classList.remove('charged');button.setAttribute('aria-label',action==='punch'?'Fire laser':action==='kick'?'Power laser shot':'Dodge');});
    this.feed=this.feed.filter(f=>f.until>this.uiClock);$('combatfeed').innerHTML=this.feed.map(f=>'<div class="feedline">'+f.text+'</div>').join('');
@@ -204,7 +204,7 @@ class BrawlApp{
  format(t){t=Math.max(0,Math.floor(t));return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0');}
  showBossResult(){let s=this.sim,p=s.fighters[this.selected],crewWon=s.bossOutcome==='crew',alive=s.fighters.filter(f=>!f.ko).length;
   this.state='results';this.audio.stop();$('winnerHead').src=crewWon?asset('head-'+(this.selected+1)+'.png'):asset('boss-face.webp');
-  $('winnerHead').alt=crewWon?'Your fighter':'SCARAT';$('resultTitle').textContent=crewWon?'CREW DEFEATS SCARAT.':'SCARAT WINS.';
+  $('winnerHead').alt=crewWon?'Your fighter':'CRIMSON';$('resultTitle').textContent=crewWon?'CREW DEFEATS CRIMSON.':'CRIMSON WINS.';
   $('resultEyebrow').textContent=crewWon?'FINAL BOSS DEFEATED':'THE LAST LAUGH';
   $('resultSummary').textContent=crewWon?alive+' CREW SURVIVED · '+(p.ko?'YOU FELL IN THE FINAL BATTLE':'YOU MADE IT THROUGH'):'ALL FOUR PLAYERS WERE KNOCKED OUT · NO REVIVES';
   $('resultStats').innerHTML=[[p.bossShots||0,'YOUR LASER SHOTS'],[p.bossDamage||0,'BOSS DAMAGE'],[4,'BOSS STAGES'],[alive,'CREW ALIVE']].map(([v,k])=>`<div><strong>${v}</strong><small>${k}</small></div>`).join('');

@@ -8,26 +8,14 @@ class BrawlScene{
  async load(){for(let i=1;i<=4;i++){let image=await this.loadImage(this.assets('head-'+i+'.png'));let stages=[];for(let stage=0;stage<5;stage++){let c=document.createElement('canvas');c.width=256;c.height=304;let x=c.getContext('2d');x.drawImage(image,0,0,256,304);if(stage){x.globalCompositeOperation='source-atop';let pts=[[[105,150],[166,150]],[[100,149],[166,149]],[[103,143],[165,143]],[[100,158],[160,158]]][i-1];for(let eye=0;eye<(stage>=2?2:1);eye++){let [ex,ey]=pts[eye];let g=x.createRadialGradient(ex,ey+6,4,ex,ey+6,31);g.addColorStop(0,'rgba(47,24,61,.62)');g.addColorStop(.5,'rgba(87,41,94,.55)');g.addColorStop(1,'rgba(122,77,66,0)');x.fillStyle=g;x.beginPath();x.ellipse(ex,ey+6,33,24,.12,0,Math.PI*2);x.fill();}if(stage>=3){x.fillStyle='rgba(156,113,73,.34)';x.beginPath();x.ellipse(52,195,21,12,-.6,0,7);x.ellipse(177,235,25,13,.5,0,7);x.fill();x.strokeStyle='rgba(125,64,53,.65)';x.lineWidth=3;x.beginPath();x.moveTo(193,178);x.lineTo(187,188);x.moveTo(202,181);x.lineTo(195,192);x.stroke();}if(stage>=4){x.fillStyle='rgba(89,73,85,.25)';x.fillRect(0,0,256,304);}x.globalCompositeOperation='source-over';}stages.push(this.R.texture(c));}this.heads.push(stages);}await this.loadBoss();return this;}
  loadImage(src){return new Promise((resolve,reject)=>{let i=new Image();i.onload=()=>resolve(i);i.onerror=()=>reject(Error('Could not load character head. Keep assets/ beside index.html.'));i.src=src;});}
  async loadBoss(){
-  this.bossRig=await (await fetch(this.assets('boss-scarat.rig.json'))).json();
-  this.bossFace=this.R.texture(await this.loadImage(this.assets('boss-face.webp')));
-  if(typeof DecompressionStream!=='function')throw Error('This browser cannot unpack the SCARAT mesh.');
-  let packed=await (await fetch(this.assets('boss-scarat.mesh.gz'))).arrayBuffer();
-  let raw=await new Response(new Blob([packed]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
-  let view=new DataView(raw),cursor=0;
-  if(String.fromCharCode(...new Uint8Array(raw,0,4))!=='SCB1')throw Error('Invalid SCARAT mesh.');
-  cursor=4;let groups=view.getUint16(cursor,true);cursor+=2;this.bossMeshes={};this.bossTriangles=0;
-  for(let group=0;group<groups;group++){
-   let length=view.getUint8(cursor++),name=new TextDecoder().decode(new Uint8Array(raw,cursor,length));cursor+=length;
-   let count=view.getUint32(cursor,true);cursor+=4;let vertices=new Float32Array(count*12);
-   for(let i=0;i<count;i++){
-    let p=i*12;vertices[p]=view.getFloat32(cursor,true);vertices[p+1]=view.getFloat32(cursor+4,true);vertices[p+2]=view.getFloat32(cursor+8,true);cursor+=12;
-    vertices[p+3]=view.getInt8(cursor++)/127;vertices[p+4]=view.getInt8(cursor++)/127;vertices[p+5]=view.getInt8(cursor++)/127;
-    vertices[p+6]=view.getUint8(cursor++)/255;vertices[p+7]=view.getUint8(cursor++)/255;vertices[p+8]=view.getUint8(cursor++)/255;
-    vertices[p+9]=0;vertices[p+10]=0;vertices[p+11]=view.getUint8(cursor++);
-   }
-   this.bossMeshes[name]=this.R.mesh(vertices);this.bossTriangles+=count/3;
-  }
-  if(cursor!==raw.byteLength)throw Error('SCARAT mesh length mismatch.');
+  if(typeof DecompressionStream!=='function')throw Error('This browser cannot unpack the Crimson Boss model.');
+  const response=await fetch(this.assets('boss-crimson.glb.gz'));
+  if(!response.ok)throw Error('Could not load Crimson Boss model.');
+  const packed=await response.arrayBuffer();
+  const raw=await new Response(new Blob([packed]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  this.crimson=VoltBossAdapter.fromAsset(this.R,await GLBAsset.fromArrayBuffer(raw));
+  this.bossTriangles=this.crimson.asset.stats.triangles;
+  this.bossClipKey='';
  }
  tex(w,h,fn,repeat=false){return canvasTex(this.R,w,h,fn,repeat);}
  sign(text,sub='',bg='#153640',fg='#fff1cf',w=1024,h=256){return this.tex(w,h,(c)=>{c.fillStyle=bg;c.fillRect(0,0,w,h);c.strokeStyle='#ffffff28';c.lineWidth=8;c.strokeRect(10,10,w-20,h-20);c.textAlign='center';c.textBaseline='middle';c.fillStyle=fg;c.font=`900 ${sub?h*.38:h*.55}px system-ui`;c.fillText(text,w/2,sub?h*.39:h*.50,w*.93);if(sub){c.fillStyle='#f0ddbe';c.font=`700 ${h*.115}px system-ui`;c.fillText(sub,w/2,h*.78,w*.91);}});}
@@ -230,58 +218,33 @@ class BrawlScene{
   this.R.draw(this.mesh.rod,matrix,{tint:rgb(color),unlit:true,blend:true,alpha,depthWrite:false});
  }
  drawBoss(boss){
-  if(!boss||!this.bossMeshes)return;
-  let R=this.R,t=boss.age||0,landing=boss.phase==='arrival';
-  let drop=landing?1-smooth(0,1.55,t):0,brace=landing?Math.sin(smooth(1.1,2.45,t)*Math.PI):0;
-  let revival=boss.phase==='resurrect',defeated=boss.phase==='dead',laugh=boss.phase==='laugh';
-  let collapse=revival?(t<.58?smooth(0,.58,t):1-smooth(1.45,3.15,t)):defeated?smooth(0,1.8,t):0;
-  let hover=revival?Math.sin(smooth(1.0,3.3,t)*Math.PI)*(.65+boss.tier*.12):0;
-  let rise=defeated?-.43*collapse:0;
-  let attackAge=boss.attackAge||0,charge=boss.attack==='charge'?smooth(0,.95,attackAge):0;
-  let recoil=boss.attack==='beam'?Math.sin(Math.min(1,attackAge/1.15)*Math.PI*3)*.10:0;
-  let claw=boss.attack==='claw'?Math.sin(smooth(0,1.22,attackAge)*Math.PI)*.85:0;
-  let slamWind=boss.attack==='slamWind'?smooth(0,.88,attackAge):0;
-  let slamHit=boss.attack==='slamImpact'?1-smooth(0,.62,attackAge):0;
-  let yaw=boss.yaw??Math.PI,scale=boss.scale||.98,gait=boss.moving?1:0;
-  let root=M4.trs([boss.x||0,(boss.y||0)+drop*8+hover+rise+Math.abs(Math.sin(boss.stride||0))*.045*gait,boss.z||0],
-   [collapse*.27+recoil*.45+slamWind*.11-slamHit*.16,yaw,collapse*.66+(laugh?Math.sin(t*11)*.12:0)],[scale,scale,scale]);
-  let pose={};
-  for(let side of ['LEFT','RIGHT']){
-   let sign=side==='LEFT'?-1:1;
-   for(let station of ['FORE','HIND']){
-    let fore=station==='FORE';
-    let step=(boss.stride||0)+(fore===(side==='LEFT')?0:Math.PI),swing=Math.sin(step)*gait,lift=Math.max(0,Math.sin(step))*gait;
-    pose[`SCARAT_${side}_${station}_HIP`]=[sign*(.08+brace*.35+drop*.45+collapse*.30)*(fore?1:-1)+swing*.31,0,sign*drop*.18];
-    pose[`SCARAT_${side}_${station}_KNEE`]=[(fore?-1:1)*(brace*.42+drop*.48+collapse*.28)+lift*.39,0,0];
-    pose[`SCARAT_${side}_${station}_ANKLE`]=[-(fore?-1:1)*(brace*.12+drop*.20)-lift*.16,0,0];
-   }
-    pose[`SCARAT_${side}_CLAW_SHOULDER`]=[-.08-brace*.22-drop*.50-collapse*.55-slamWind*.62+slamHit*.95+(side==='LEFT'?-claw*.8:charge*.28-recoil*.7)+(laugh?Math.sin(t*11+sign)*.3:0),0,sign*(.08+(side==='LEFT'?claw*.16:0))];
-    pose[`SCARAT_${side}_CLAW_WRIST`]=[.07+brace*.14+collapse*.4-slamWind*.30+slamHit*.55+(side==='LEFT'?claw*.55:charge*.12+recoil*.9),0,0];
-  }
-  let jawOpen=boss.clawOpen??(.25+.07*Math.sin(this.time*2.3));
-  pose.SCARAT_LEFT_CLAW_INNER_JAW=[0,jawOpen,0];
-  pose.SCARAT_LEFT_CLAW_OUTER_JAW=[0,-jawOpen,0];
-  pose.SCARAT_PRESSURE_SPINE=[brace*.08+slamWind*.16-slamHit*.25,0,0];
-  pose.SCARAT_SENSOR_BROW=[collapse*.23+(boss.attack==='charge'?-.12:0),0,claw*.06];
-  let matrices={};
-  const matrix=name=>{
-   if(matrices[name])return matrices[name];
-   let joint=this.bossRig[name],parent=joint.parent?matrix(joint.parent):root;
-   let p=joint.pivot,r=pose[name]||[0,0,0],magnify=name==='SCARAT_LEFT_CLAW_WRIST'?1.22:name==='SCARAT_RIGHT_CLAW_WRIST'?1.13:1;
-   matrices[name]=M4.mul(M4.mul(parent,M4.trs(p,r,[magnify,magnify,magnify])),M4.trs(p.map(v=>-v)));
-   return matrices[name];
-  };
-  this.shadow(boss.x||0,boss.z||0,6.8,.65);
-  for(let name of Object.keys(this.bossMeshes))R.draw(this.bossMeshes[name],matrix(name),{tint:defeated?[.65,.66,.68]:[1,1,1]});
-  // The supplied transparent portrait is the boss head. Follow the original
-  // SCARAT sensor joint so every attack, fall and resurrection moves it with
-  // the machine, while the camera-facing cutout stays readable in gameplay.
-  let faceCenter=M4.point(matrix('SCARAT_SENSOR_BROW'),[0,3.05,-2.18]);
-  R.draw(this.mesh.plane,R.billboard(faceCenter,[2.05,2.05,1]),
-   {texture:this.bossFace,unlit:true,blend:true,depthWrite:false,
-    tint:defeated?[.72,.76,.8]:[1,1,1]});
-  this.bossMuzzle=M4.point(matrix('SCARAT_RIGHT_CLAW_WRIST'),[1,1.18,-3.81]);
-  if(charge>0){let radius=.35+charge*.55;
+  if(!boss||!this.crimson)return;
+  const R=this.R,t=boss.age||0,landing=boss.phase==='arrival';
+  const revival=boss.phase==='resurrect',defeated=boss.phase==='dead';
+  const attackAge=boss.attackAge||0,charge=boss.attack==='charge'?smooth(0,.95,attackAge):0;
+  let key='idle',clip='Idle',loop=true,speed=1;
+  if(landing&&t<2.1){key='spawn';clip='Spawn';loop=false;}
+  else if(revival&&t<1.3){key='rebuild-down';clip='Defeat_Kneel';loop=false;speed=2;}
+  else if(revival){key='rebuild-up';clip='Spawn';loop=false;}
+  else if(defeated){key='defeat';clip='Defeat_Kneel';loop=false;}
+  else if(boss.phase==='laugh'){key='laugh';clip='Taunt';loop=false;}
+  else if(boss.attack==='slamWind'||boss.attack==='slamImpact'){key='stomp-'+boss.attackSerial;clip='Stomp';loop=false;}
+  else if(boss.attack==='charge'||boss.attack==='beam'){key='cannon-'+boss.attackSerial;clip='Cannon_Fire';loop=false;speed=.76;}
+  else if(boss.attack==='claw'){key='sword-'+boss.attackSerial;clip='Sword_Slash';loop=false;}
+  else if(boss.hitVisual>0){key='hit-'+boss.visualHitSerial;clip='Hit_Reaction';loop=false;}
+  else if(boss.aimHold>0){key='guard';clip='Guard';}
+  else if(boss.moving){key='run';clip='Run';}
+  if(this.bossClipKey!==key){this.crimson.play(clip,{fade:this.bossClipKey?.12:0,loop});this.bossClipKey=key;}
+  this.crimson.rig.speed=speed;
+  this.crimson.update(this.visualDt||1/60);
+  const drop=landing?1-smooth(0,1.55,t):0;
+  const hover=revival?Math.sin(smooth(1.3,3.4,t)*Math.PI)*.33:0;
+  const root=M4.trs([boss.x||0,(boss.y||0)+drop*8+hover,boss.z||0],
+   [0,(boss.yaw??Math.PI)+Math.PI,0],[1.65,1.65,1.65]);
+  this.shadow(boss.x||0,boss.z||0,6.0,.65);
+  this.crimson.draw(root,{tint:defeated?[.68,.72,.76]:[1,1,1]});
+  this.bossMuzzle=this.crimson.socket('Socket_Muzzle',root).position;
+  if(charge>0){const radius=.25+charge*.48;
    R.draw(this.mesh.ring,M4.trs(this.bossMuzzle,[Math.PI/2,0,0],[radius,radius,.045]),
     {tint:rgb('#ff8b31'),unlit:true,blend:true,alpha:charge*.85,depthWrite:false});}
   if(landing&&t>=1.45&&t<2.55){
@@ -319,7 +282,7 @@ class BrawlScene{
   if(e.type==='ko'){let f=sim.fighters[e.id];if(sim.cloud.active)this.pops.push({id:e.id,angle:this.random()*Math.PI*2,life:1.15,max:1.15,rotate:.50});}
   if(e.type==='break')for(let i=0;i<15;i++)this.effects.push({kind:'chip',x:e.x,y:.7,z:e.z,vx:(this.random()-.5)*5,vy:2+this.random()*4,vz:(this.random()-.5)*5,life:1,max:1,color:'#bd9260',size:.08});
  }
- updateVisual(dt){this.time+=dt;this.shake*=Math.exp(-12*dt);for(let e of this.effects){e.life-=dt;if(e.kind==='chip'){e.x+=e.vx*dt;e.y+=e.vy*dt;e.z+=e.vz*dt;e.vy-=12*dt;if(e.y<.04){e.y=.04;e.vy*=-.25;e.vx*=.8;e.vz*=.8;}}}this.effects=this.effects.filter(e=>e.life>0).slice(-100);for(let p of this.pops)p.life-=dt;this.pops=this.pops.filter(p=>p.life>0).slice(-6);}
+ updateVisual(dt){this.visualDt=dt;this.time+=dt;this.shake*=Math.exp(-12*dt);for(let e of this.effects){e.life-=dt;if(e.kind==='chip'){e.x+=e.vx*dt;e.y+=e.vy*dt;e.z+=e.vz*dt;e.vy-=12*dt;if(e.y<.04){e.y=.04;e.vy*=-.25;e.vx*=.8;e.vz*=.8;}}}this.effects=this.effects.filter(e=>e.life>0).slice(-100);for(let p of this.pops)p.life-=dt;this.pops=this.pops.filter(p=>p.life>0).slice(-6);}
  drawCloud(sim){let c=sim.cloud;if(!c.active&&c.fade<=0)return;let R=this.R,M=this.mesh,n=c.active?1:c.fade,t=this.time;
   this.shadow(c.x,c.z,6.7,.75*n);
   // Soft billboard volumes overlap around a fully 3D, lit, moving cloud core.
