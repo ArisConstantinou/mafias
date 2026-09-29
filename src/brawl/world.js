@@ -262,8 +262,10 @@ class BrawlScene{
    if(mount===undefined)return;
    save(mount);
    const shieldImpact=Math.min(1,(boss.shieldHitVisual||0)/.24);
-   player.translations[mount]=[.20-.41*amount,-.08+.15*amount,.08+.19*amount-.05*shieldImpact];
-   player.rotations[mount]=Math3D.slerp(q(.05,Math.PI/2),q(1.28,Math.PI-.25,-.10),amount);
+   // Match the guard's armored face while stowed, but leave the cannon's
+   // forward and lateral firing path clear beside the left forearm.
+   player.translations[mount]=[.58-.79*amount,-.08+.15*amount,-.15+.42*amount-.05*shieldImpact];
+   player.rotations[mount]=Math3D.slerp([.15646,.96236,-.06353,.21295],q(1.28,Math.PI-.25,-.10),amount);
    if(amount>0){
     pose('UpperArm_L',q(-.90+.12*shieldImpact,-.10,-.34),amount);
     pose('Forearm_L',q(-1.00,.08,-.08),amount);
