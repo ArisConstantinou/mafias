@@ -121,7 +121,8 @@ Sim.prototype.bossHitPlayer=function(f,damage,source='cannon'){
 };
 
 Sim.prototype.bossBeam=function(shot){
- let b=this.boss,id=b.targetIds[shot],point=b.targetPoints[shot];
+ let b=this.boss;if(!b||b.shieldPhase!=='stowed')return;
+ let id=b.targetIds[shot],point=b.targetPoints[shot];
  if(id===undefined||!point)return;
  let start={x:b.x+Math.cos(b.yaw)-Math.sin(b.yaw)*3.6,
   z:b.z-Math.sin(b.yaw)-Math.cos(b.yaw)*3.6},end=point;
@@ -172,7 +173,13 @@ Sim.prototype.bossStep=function(dt){
    else if(b.shieldPhase==='active'&&b.shieldAge>=shieldDuration){b.shieldPhase='retract';b.shieldAge=0;this.emit('bossShieldRetract',{});}
    else if(b.shieldPhase==='retract'&&b.shieldAge>=shieldRetract){b.shieldPhase='stowed';b.shieldAge=0;b.cooldown=Math.max(b.cooldown,.65);}
   }
-  if(b.pursuitClock>=3.4){b.pursuitClock=0;b.aimHold=.45;}
+  if(b.shieldPhase!=='stowed'){
+   b.aimHold=0;
+   if(b.attack==='charge'||b.attack==='beam'){
+    b.attack='idle';b.attackAge=0;b.shots=0;b.targetIds=[];b.targetPoints=[];
+   }
+  }
+  if(b.shieldPhase==='stowed'&&b.pursuitClock>=3.4){b.pursuitClock=0;b.aimHold=.45;}
   b.aimHold=Math.max(0,b.aimHold-dt);
   let living=this.fighters.filter(f=>!f.ko);
   if(b.chaseAge>=4.2||!living.some(f=>f.id===b.chaseTargetId)){
@@ -279,15 +286,15 @@ Sim.prototype.bossStep=function(dt){
    b.shieldPressure=0;b.cooldown=.25;b.aimHold=0;
    this.emit('bossShieldDeploy',{duration:shieldDuration,cooldown:shieldCooldown});
   }
-  if(b.shieldPhase==='deploy'||b.shieldPhase==='retract')return;
+  if(b.shieldPhase!=='stowed')return;
   if(b.cooldown<=0){
    let living=this.fighters.filter(f=>!f.ko);
    let near=living.filter(f=>f.inv<=0).sort((a,c)=>distance(a,b)-distance(c,b))[0];
    let crowded=living.filter(f=>distance(f,b)<5.1).length;
-   if(b.shieldPhase!=='active'&&crowded>=2&&this.random()<.62){
+   if(crowded>=2&&this.random()<.62){
     b.attack='slamWind';b.attackAge=0;b.attackSerial++;b.targetIds=[];
     this.emit('bossSlamWind',{x:b.x,z:b.z});
-   }else if(b.shieldPhase!=='active'&&near&&distance(near,b)<5.2&&this.random()<.82){
+   }else if(near&&distance(near,b)<5.2&&this.random()<.82){
     b.attack='claw';b.attackAge=0;b.grabbed=null;b.targetIds=[near.id];
     b.attackSerial++;
     this.emit('bossClawWind',{id:near.id});
@@ -322,7 +329,7 @@ Sim.prototype.bossStep=function(dt){
    while(b.shots<b.targetIds.length&&b.attackAge>=b.shots*.28){
     this.bossBeam(b.shots);b.shots++;
    }
-   if(b.attackAge>.85){b.attack='idle';b.cooldown=b.shieldPhase==='active'?.55:Math.max(1.2,3.0-b.tier*.38);}
+   if(b.attackAge>.85){b.attack='idle';b.cooldown=Math.max(1.2,3.0-b.tier*.38);}
   }else if(b.attack==='claw'){
    b.clawOpen=.85;
    if(b.attackAge>=.53&&b.grabbed===null){

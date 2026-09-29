@@ -234,12 +234,12 @@ class BrawlScene{
   else if(revival){key='rebuild-up';clip='Spawn';loop=false;}
   else if(defeated){key='defeat';clip='Defeat_Kneel';loop=false;}
   else if(boss.phase==='laugh'){key='laugh';clip='Taunt';loop=false;}
+  else if(boss.shieldPhase!=='stowed'){key='shield-brace';clip='Guard';}
   else if(boss.attack==='slamWind'||boss.attack==='slamImpact'){key='stomp-'+boss.attackSerial;clip='Stomp';loop=false;}
   else if(boss.attack==='charge'||boss.attack==='beam'){key='cannon-'+boss.attackSerial;clip='Cannon_Fire';loop=false;speed=.76;}
   else if(boss.attack==='claw'){key='sword-'+boss.attackSerial;clip='Sword_Slash';loop=false;}
-  else if(boss.shieldPhase==='deploy'||boss.shieldPhase==='retract'){key='shield-brace';clip='Guard';}
   else if(boss.hitVisual>0){key='hit-'+boss.visualHitSerial;clip='Hit_Reaction';loop=false;}
-  else if(boss.shieldPhase==='active'||boss.aimHold>0){key='guard';clip='Guard';}
+  else if(boss.aimHold>0){key='guard';clip='Guard';}
   else if(boss.moving){key='run';clip='Run';}
   // Articulate the imported skin, with the shield gripped by Hand_L. The
   // opposite sword arm, torso and both legs brace behind the left-arm guard.
@@ -263,11 +263,9 @@ class BrawlScene{
    player.translations[mount]=[-.08-.13*amount,-.03+.10*amount,.16+.11*amount-.05*shieldImpact];
    player.rotations[mount]=Math3D.slerp(q(.05,Math.PI),q(1.28,Math.PI-.25,-.10),amount);
    if(amount>0){
-    const cannon=boss.attack==='charge'||boss.attack==='beam';
-    const arm=amount*(cannon?.67:1);
-    pose('UpperArm_L',q(-.90+.12*shieldImpact,-.10,-.34),arm);
-    pose('Forearm_L',q(-1.00,.08,-.08),arm);
-    pose('Hand_L',q(.16,-.08,-.08),arm);
+    pose('UpperArm_L',q(-.90+.12*shieldImpact,-.10,-.34),amount);
+    pose('Forearm_L',q(-1.00,.08,-.08),amount);
+    pose('Hand_L',q(.16,-.08,-.08),amount);
     pose('UpperArm_R',q(-.32,.15,-.24),amount);
     pose('Forearm_R',q(-.78),amount);
     pose('Spine_Lower',q(.15,.08,-.06),amount);

@@ -193,9 +193,19 @@ while(guard.shieldPhase==='active'&&shieldAttacks.size<10){
 }
 assert.equal(guard.shieldPhase,'retract','protection ends after ten seconds');
 assert(activeFrames>=600&&activeFrames<=601,'active shield duration is ten seconds');
-assert(shieldEvents.some(e=>e.type==='bossLaser'),'the cannon fires while shielding');
-assert(!shieldAttacks.has('claw')&&!shieldAttacks.has('slamWind')&&!shieldAttacks.has('slamImpact'),
- 'sword, grab and ground smash stay disabled while shielding');
+assert(!shieldEvents.some(e=>e.type==='bossLaser'),'the cannon cannot fire while shielding');
+assert.deepEqual([...shieldAttacks],['idle'],'the shield is a defense-only stance');
+guard.shieldPhase='active';guard.targetIds=[gunner.id];guard.targetPoints=[{x:gunner.x,z:gunner.z}];
+shield.bossBeam(0);
+assert(!shield.drainEvents().some(e=>e.type==='bossLaser'),'a pending cannon shot cannot bypass the shield lock');
+guard.attack='charge';guard.attackAge=.7;frames(shield,1);
+assert.equal(guard.attack,'idle','a pending cannon charge is cancelled while the shield is raised');
+guard.shieldPhase='retract';guard.shieldAge=0;
+frames(shield,42);
+assert.equal(guard.shieldPhase,'stowed');
+guard.targetIds=[gunner.id];guard.targetPoints=[{x:gunner.x,z:gunner.z}];
+shield.bossBeam(0);
+assert(shield.drainEvents().some(e=>e.type==='bossLaser'),'cannon works again after shield stows');
 assert(shield.time<guard.shieldReadyAt,'shield is still cooling after retraction');
 guard.shieldPhase='stowed';guard.shieldAge=0;guard.attack='idle';guard.cooldown=0;
 guard.shieldPressure=100;shield.time=guard.shieldReadyAt-2/60;
@@ -204,4 +214,4 @@ assert.equal(guard.shieldPhase,'stowed','shield cannot redeploy before one minut
 guard.attack='idle';guard.cooldown=0;frames(shield,2);
 assert.equal(guard.shieldPhase,'deploy','shield becomes available at the one-minute mark');
 
-console.log('Boss revival, four stages, landing physics, ally balance, cover, high ground, shield timing and cannon-only guard, pursuit and both endings passed.');
+console.log('Boss revival, four stages, landing physics, ally balance, cover, high ground, shield timing, defense-only guard, pursuit and both endings passed.');

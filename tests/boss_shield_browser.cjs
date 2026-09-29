@@ -63,12 +63,17 @@ fs.mkdirSync(out,{recursive:true});
      gaps.sort((a,b)=>a-b);resolve({samples:gaps.length,p95Ms:gaps[Math.floor(gaps.length*.95)],over33Ms:gaps.filter(x=>x>33.3).length});};
     requestAnimationFrame(tick);
    }));
-   const cannon=await page.evaluate(()=>{const s=brawl.sim,b=s.boss;b.attack='charge';b.attackSerial++;b.attackAge=.3;
-    brawl.scene.render(s,1/60,'playing');return{clip:brawl.scene.crimson.rig.clip.name,shield:brawl.scene.bossShield};});
-   await page.screenshot({path:path.join(out,label+'-shield-cannon.png')});
-   assert.equal(cannon.clip,'Cannon_Fire','shield stays deployed during cannon firing');
-   assert(cannon.shield[2]>front.bossZ,'cannon clip keeps the shield ahead of the boss');
-   await page.evaluate(()=>{brawl.sim.boss.attack='idle';});
+   let lockout=null;
+   if(!baseline){
+    lockout=await page.evaluate(()=>{const s=brawl.sim,b=s.boss;
+     b.attack='beam';b.attackAge=.5;b.shots=0;b.targetIds=[0];b.targetPoints=[{x:s.fighters[0].x,z:s.fighters[0].z}];
+     s.step(1/60);const events=s.drainEvents();brawl.scene.render(s,1/60,'playing');
+     return{attack:b.attack,clip:brawl.scene.crimson.rig.clip.name,laser:events.some(e=>e.type==='bossLaser')};});
+    await page.screenshot({path:path.join(out,label+'-shield-cannon-lockout.png')});
+    assert.equal(lockout.attack,'idle','pending cannon attack is cancelled during guard');
+    assert.equal(lockout.clip,'Guard','shield keeps the defensive pose');
+    assert.equal(lockout.laser,false,'no boss laser while using the shield');
+   }
    const retract=await sample('retract',.35);
    await page.screenshot({path:path.join(out,label+'-retract.png')});
    assert(retract.shield.every(Number.isFinite));
@@ -108,7 +113,7 @@ fs.mkdirSync(out,{recursive:true});
     brawl.scene.render(brawl.sim,0,'playing');
    });
    await page.screenshot({path:path.join(out,label+'-active-level.png')});
-   console.log(JSON.stringify({label,back,swing,front,cannon,retract,pacing,errors}));
+   console.log(JSON.stringify({label,back,swing,front,lockout,retract,pacing,errors}));
    await context.close();
   }
  }finally{await browser.close();}
