@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0c1118">
+  <meta name="description" content="Πέντε πλήρους ανάλυσης concepts για τον τελικό boss του Mafias Brawl.">
+  <meta property="og:title" content="Final Boss Concepts | Mafias Brawl">
+  <meta property="og:description" content="Πέντε θωρακισμένες κατευθύνσεις για τον τελικό μαχητή.">
+  <meta property="og:image" content="https://arisconstantinou.github.io/mafias/concepts/images/01-red-pit-champion.png">
+  <title>Final Boss Concepts | Mafias Brawl</title>
+  <link rel="preload" as="image" href="images/01-red-pit-champion.png" fetchpriority="high">
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #0c1118;
+      color: #f5f2ea;
+      font-synthesis: none;
+    }
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: radial-gradient(circle at 50% -10%, #452825 0, #151a21 38rem, #0c1118 75rem);
+    }
+    a { color: inherit; }
+    .wrap { width: min(100% - 32px, 1180px); margin-inline: auto; }
+    .topbar {
+      border-bottom: 1px solid #ffffff1f;
+      background: #0c1118d9;
+    }
+    .topbar-inner {
+      min-height: 68px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .brand {
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing: .13em;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .brand span { color: #f97b57; }
+    .back {
+      display: inline-flex;
+      align-items: center;
+      min-height: 44px;
+      padding: 0 15px;
+      border: 1px solid #ffffff3b;
+      border-radius: 11px;
+      font-size: 14px;
+      font-weight: 750;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .back:hover, .back:focus-visible, .full:hover, .full:focus-visible { border-color: #fca47f; outline-color: #fca47f; }
+    .intro { padding: clamp(34px, 6vw, 78px) 0 30px; }
+    .eyebrow { margin: 0 0 14px; color: #ffad8c; font-size: 12px; font-weight: 850; letter-spacing: .18em; }
+    h1 { max-width: 13ch; margin: 0; font-size: clamp(38px, 6.8vw, 78px); line-height: .99; letter-spacing: -.055em; }
+    .lead { max-width: 61ch; margin: 22px 0 0; color: #cbd0d4; font-size: clamp(16px, 2vw, 20px); line-height: 1.55; }
+    .jump { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 25px; }
+    .jump a {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 45px;
+      min-height: 45px;
+      padding: 0 13px;
+      border: 1px solid #ffffff30;
+      border-radius: 9px;
+      background: #1d252e;
+      font-size: 14px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+    .jump a:first-child { border-color: #fa8e66; color: #ffc6ac; }
+    .jump a:hover, .jump a:focus-visible { background: #34414b; outline-color: #fca47f; }
+    main { padding-bottom: 70px; }
+    .card {
+      min-width: 0;
+      overflow: hidden;
+      border: 1px solid #ffffff25;
+      border-radius: 22px;
+      background: #192029;
+      box-shadow: 0 14px 38px #0000002b;
+      scroll-margin-top: 16px;
+    }
+    .card.selected { display: grid; border-color: #d67253a3; }
+    .art {
+      display: block;
+      min-width: 0;
+      background: #27292f;
+      line-height: 0;
+    }
+    .art img { display: block; width: 100%; height: auto; }
+    .selected .art img { aspect-ratio: 1; object-fit: contain; }
+    .copy { display: flex; flex-direction: column; align-items: flex-start; padding: 26px; }
+    .kicker { margin: 0 0 11px; color: #ffac88; font-size: 12px; font-weight: 850; letter-spacing: .13em; text-transform: uppercase; }
+    h2 { margin: 0; font-size: clamp(26px, 3.5vw, 42px); line-height: 1.08; letter-spacing: -.04em; }
+    .copy p:not(.kicker) { margin: 15px 0 0; color: #d1d5d7; font-size: 16px; line-height: 1.55; }
+    .features { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; padding: 0; margin: 21px 0 25px; }
+    .features li { border: 1px solid #ffffff27; border-radius: 999px; padding: 8px 11px; color: #e7e5e0; font-size: 13px; line-height: 1.25; }
+    .full {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      padding: 11px 17px;
+      border: 1px solid #f2a385;
+      border-radius: 11px;
+      background: #6a342b;
+      color: #fff6ed;
+      font-size: 15px;
+      font-weight: 850;
+      text-align: center;
+      text-decoration: none;
+    }
+    .variants-heading { margin: 49px 0 20px; font-size: clamp(24px, 3vw, 36px); letter-spacing: -.035em; }
+    .variants { display: grid; gap: 20px; }
+    .variants .art img { aspect-ratio: 1; object-fit: contain; }
+    .variants h2 { font-size: clamp(24px, 2.4vw, 33px); }
+    .variants .copy { padding: 23px; }
+    .variants .features { margin-top: 17px; }
+    .variants .full { margin-top: auto; }
+    footer { border-top: 1px solid #ffffff20; padding: 22px 0 45px; color: #aeb7bc; font-size: 14px; line-height: 1.55; }
+    footer p { max-width: 75ch; margin: 0; }
+    @media (min-width: 800px) {
+      .card.selected { grid-template-columns: minmax(0, 1.15fr) minmax(300px, .85fr); }
+      .selected .copy { justify-content: center; padding: clamp(28px, 4vw, 58px); }
+      .variants { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    @media (max-width: 390px) {
+      .wrap { width: min(100% - 24px, 1180px); }
+      .brand { font-size: 12px; }
+      .back { padding-inline: 10px; font-size: 12px; }
+      .copy, .variants .copy { padding: 20px; }
+    }
+    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="wrap topbar-inner">
+      <a class="brand" href="../" aria-label="Mafias αρχική">MAFIAS <span>／ BRAWL</span></a>
+      <a class="back" href="../">← Πίσω στο παιχνίδι</a>
+    </div>
+  </header>
+  <div class="wrap intro">
+    <p class="eyebrow">FINAL BOSS / CONCEPT GALLERY</p>
+    <h1>Ο τελικός μαχητής.</h1>
+    <p class="lead">Πέντε θωρακισμένες κατευθύνσεις για τον boss του Brawl. Άνοιξε οποιαδήποτε εικόνα σε πλήρη ανάλυση για να δεις το κράνος, τις αρθρώσεις και τον εξοπλισμό της.</p>
+    <nav class="jump" aria-label="Μετάβαση σε concept">
+      <a href="#concept-1" aria-label="Concept 1">01</a>
+      <a href="#concept-2" aria-label="Concept 2">02</a>
+      <a href="#concept-3" aria-label="Concept 3">03</a>
+      <a href="#concept-4" aria-label="Concept 4">04</a>
+      <a href="#concept-5" aria-label="Concept 5">05</a>
+    </nav>
+  </div>
+  <main class="wrap">
+    <article class="card selected" id="concept-1">
+      <a class="art" href="images/01-red-pit-champion.png" target="_blank" rel="noopener" aria-label="Άνοιγμα Red Pit Champion σε πλήρη ανάλυση">
+        <img src="images/01-red-pit-champion.png" width="1254" height="1254" alt="Κόκκινος βαριά θωρακισμένος μαχητής με σπαθί, κανόνι στο αριστερό αντιβράχιο, ασπίδα στην πλάτη και πίσω όψεις" fetchpriority="high">
+      </a>
+      <div class="copy">
+        <p class="kicker">01 / Επιλεγμένη κατεύθυνση</p>
+        <h2>Red Pit Champion</h2>
+        <p>Η πιο ογκώδης κόκκινη πανοπλία. Η ασπίδα ασφαλίζει στην πλάτη, ενώ το ενσωματωμένο κανόνι αφήνει ελεύθερη την αριστερή παλάμη.</p>
+        <ul class="features"><li>Βαρύς θώρακας</li><li>Αριστερό κανόνι</li><li>Ασπίδα πλάτης</li><li>Boosters ποδιών</li></ul>
+        <a class="full" href="images/01-red-pit-champion.png" target="_blank" rel="noopener">Άνοιγμα πλήρους εικόνας ↗</a>
+      </div>
+    </article>
+
+    <h2 class="variants-heading">Τέσσερις ακόμη κατευθύνσεις</h2>
+    <div class="variants">
+      <article class="card" id="concept-2">
+        <a class="art" href="images/02-bastion-bruiser.png" target="_blank" rel="noopener" aria-label="Άνοιγμα Bastion Bruiser σε πλήρη ανάλυση">
+          <img src="images/02-bastion-bruiser.png" width="1672" height="941" alt="Βαρύς μαχητής σε ανθρακί και μπρούντζο, με σπαθί, κανόνι στο αριστερό αντιβράχιο και γωνιώδη ασπίδα στην πλάτη" loading="lazy" decoding="async">
+        </a>
+        <div class="copy"><p class="kicker">02 / Θωράκιση κοντινής μάχης</p><h2>Bastion Bruiser</h2><p>Πλατιά, γωνιώδης σιλουέτα σε ανθρακί και μπρούντζο, με ασπίδα τύπου kite.</p><ul class="features"><li>Επιθετική στάση</li><li>Γωνιώδης ασπίδα</li></ul><a class="full" href="images/02-bastion-bruiser.png" target="_blank" rel="noopener">Άνοιγμα πλήρους εικόνας ↗</a></div>
+      </article>
+      <article class="card" id="concept-3">
+        <a class="art" href="images/03-aegis-striker.png" target="_blank" rel="noopener" aria-label="Άνοιγμα Aegis Striker σε πλήρη ανάλυση">
+          <img src="images/03-aegis-striker.png" width="1254" height="1254" alt="Μπλε βαριά θωράκιση με καμπύλα τμήματα, σπαθί, κανόνι στο αριστερό αντιβράχιο και κυκλική ασπίδα στην πλάτη" loading="lazy" decoding="async">
+        </a>
+        <div class="copy"><p class="kicker">03 / Κυκλική άμυνα</p><h2>Aegis Striker</h2><p>Καμπύλες πλάκες τιτανίου και κυκλική ασπίδα με κεντρικό μηχανισμό ασφάλισης.</p><ul class="features"><li>Καμπύλη θωράκιση</li><li>Κυκλική ασπίδα</li></ul><a class="full" href="images/03-aegis-striker.png" target="_blank" rel="noopener">Άνοιγμα πλήρους εικόνας ↗</a></div>
+      </article>
+      <article class="card" id="concept-4">
+        <a class="art" href="images/04-foundry-reaver.png" target="_blank" rel="noopener" aria-label="Άνοιγμα Foundry Reaver σε πλήρη ανάλυση">
+          <img src="images/04-foundry-reaver.png" width="1254" height="1254" alt="Ασύμμετρη χαλκόχρωμη βαριά πανοπλία με πλατύ σπαθί, κανόνι στο αριστερό αντιβράχιο και επιμήκη ασπίδα στην πλάτη" loading="lazy" decoding="async">
+        </a>
+        <div class="copy"><p class="kicker">04 / Ασύμμετρος μαχητής</p><h2>Foundry Reaver</h2><p>Βιομηχανική πανοπλία με διαφορετικό όγκο στους δύο ώμους και πλατύ σπαθί.</p><ul class="features"><li>Ασύμμετρη πανοπλία</li><li>Πλατύ σπαθί</li></ul><a class="full" href="images/04-foundry-reaver.png" target="_blank" rel="noopener">Άνοιγμα πλήρους εικόνας ↗</a></div>
+      </article>
+      <article class="card" id="concept-5">
+        <a class="art" href="images/05-ivory-juggernaut.png" target="_blank" rel="noopener" aria-label="Άνοιγμα Ivory Juggernaut σε πλήρη ανάλυση">
+          <img src="images/05-ivory-juggernaut.png" width="1254" height="1254" alt="Λευκή βαριά κεραμική πανοπλία με σπαθί, κανόνι στο αριστερό αντιβράχιο και αναδιπλούμενη ασπίδα στην πλάτη" loading="lazy" decoding="async">
+        </a>
+        <div class="copy"><p class="kicker">05 / Αρθρωτή ασπίδα</p><h2>Ivory Juggernaut</h2><p>Κεραμικές πλάκες και πολυτμηματική ασπίδα που διπλώνει στην πλάτη.</p><ul class="features"><li>Βαριά θωράκιση</li><li>Πτυσσόμενη ασπίδα</li></ul><a class="full" href="images/05-ivory-juggernaut.png" target="_blank" rel="noopener">Άνοιγμα πλήρους εικόνας ↗</a></div>
+      </article>
+    </div>
+  </main>
+  <footer><div class="wrap"><p>Πρωτότυπες εικόνες concept για αξιολόγηση μορφής και εξοπλισμού. Οι πίσω όψεις δείχνουν σχεδιαστική πρόθεση· το 3D μοντέλο, ο μηχανισμός της ασπίδας και οι κινήσεις χρειάζονται ξεχωριστή κατασκευή και έλεγχο.</p></div></footer>
+</body>
+</html>
