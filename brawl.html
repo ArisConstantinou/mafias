@@ -75,6 +75,7 @@ body.mobile-controls .combat.punch svg{width:22px;height:22px}
 .boss-health{height:20px;background:#3b2425;border:1px solid #ffdba877;border-radius:4px;overflow:hidden;margin:9px 0 6px}
 .boss-health i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#a2492b,#ef8f43 53%,#ffd36b);box-shadow:inset 0 2px 2px #fff7,0 0 10px #ffc0789c;transition:width .12s linear}
 .boss-hud small{font-size:12px;color:#d9d4bf;font-weight:800;letter-spacing:.6px}
+.boss-hud #bossShieldStatus{color:#8ee9ff;margin-left:12px}
 body.boss-mode .combat.kick,body.boss-mode .combat.grab,body.boss-mode .combat.pick{display:none}
 body.boss-mode .actions{grid-template-columns:repeat(3,74px)}
 body.boss-mode .combat.punch{background:#246779;border-color:#8aefff;color:#e6fdff}
@@ -169,7 +170,7 @@ body.boss-mode .combat.grab,body.boss-mode .combat.pick{display:none!important}
  <header class="matchbar"><a class="brandmini" href="#" id="homeButton" aria-label="Pause game">4<span>M</span></a><div class="matchinfo"><b id="modeTitle">LAST ONE STANDING</b><span><i class="live-dot"></i> NK CREW YARD <em id="clock">00:00</em></span></div><div class="topbuttons"><button id="soundButton" class="iconbutton" aria-label="Mute sound"><svg><use href="#i-sound"/></svg></button><button id="pauseButton" class="iconbutton" aria-label="Pause"><svg><use href="#i-pause"/></svg></button></div></header>
  <div id="crew" class="crew"></div>
  <div class="objective" id="objective">One yard. Four fighters. Last one standing.</div>
- <div class="boss-hud" id="bossHud" hidden role="group" aria-label="Final boss health"><div class="boss-top"><b>CRIMSON · FINAL BOSS</b><span id="bossPhaseLabel">ARRIVING</span><strong id="bossHealthValue">280 / 280</strong></div><div class="boss-health" role="progressbar" aria-label="CRIMSON health" aria-valuemin="0" aria-valuemax="280" aria-valuenow="280"><i id="bossHealthFill"></i></div><small id="bossResurrections">4 STAGES · 3 RESURRECTIONS</small></div>
+ <div class="boss-hud" id="bossHud" hidden role="group" aria-label="Final boss health"><div class="boss-top"><b>CRIMSON · FINAL BOSS</b><span id="bossPhaseLabel">ARRIVING</span><strong id="bossHealthValue">280 / 280</strong></div><div class="boss-health" role="progressbar" aria-label="CRIMSON health" aria-valuemin="0" aria-valuemax="280" aria-valuenow="280"><i id="bossHealthFill"></i></div><small id="bossResurrections">4 STAGES · 3 RESURRECTIONS</small><small id="bossShieldStatus" aria-live="off"></small></div>
  <div class="cloudbadge" id="cloudBadge" hidden><b>TOTAL CHAOS</b><span>MOVE OR DODGE OUT TO ESCAPE</span></div>
  <div id="combatfeed" class="combatfeed"></div><div id="toast" role="status" class="toast"></div>
  <div id="meters" class="meters"><div><b id="condition">CLEAN</b><span id="staminaValue">100</span></div><div class="meter"><i id="staminaBar"></i></div><div class="meterlabels"><span>STAMINA</span><span id="rageLabel">RAGE 0%</span></div><div class="rage"><i id="rageBar"></i></div><small id="heldItem">HANDS FREE</small><small id="revenge">NO GRUDGES. YET.</small></div>
@@ -463,6 +464,7 @@ const cap=(n,a,b)=>Math.max(a,Math.min(b,n));
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const health=[280,340,400,460];
 const crewLaserRange=7.5;
+const shieldDeploy=.8,shieldDuration=10,shieldRetract=.7,shieldCooldown=60;
 BrawlSim.BOSS_LASER_RANGE=crewLaserRange;
 // Shared by collision, laser cover and the rendered boss-only arena.
 const arena={
@@ -507,6 +509,7 @@ Sim.prototype.beginBoss=function(roundWinner){
   cooldown:3.0,shots:0,targetIds:[],targetPoints:[],targetCursor:0,attackSerial:0,
   chaseTargetId:0,chaseAge:0,chaseTime:0,battleTime:0,stride:0,moving:0,
   pursuitClock:0,aimHold:0,avoidSide:1,
+  shieldPhase:'stowed',shieldAge:0,shieldReadyAt:0,shieldPressure:0,shieldHitVisual:0,
   clawOpen:.2,grabbed:null,hitVisual:0,visualHitSerial:0};
  for(let item of this.items)item.broken=true;
  for(let f of this.fighters){
@@ -545,14 +548,20 @@ Sim.prototype.bossFire=function(f,heavy=false){
  let r=distance(f,b),outOfRange=r>crewLaserRange;
  let end=outOfRange?{x:f.x+(b.x-f.x)*crewLaserRange/r,z:f.z+(b.z-f.z)*crewLaserRange/r}:b;
  let block=segmentCover(f,end),damage=heavy?31:f.id===this.selected?11:4;
- let applied=block||outOfRange?0:Math.min(b.hp,damage);
+ const fx=-Math.sin(b.yaw),fz=-Math.cos(b.yaw);
+ const dot=(f.x-b.x)*fx+(f.z-b.z)*fz;
+ const shieldBlock=!block&&!outOfRange&&b.shieldPhase==='active'&&dot>r*.34;
+ if(shieldBlock){end={x:b.x+fx*1.25,z:b.z+fz*1.25};b.shieldHitVisual=.24;
+  this.emit('bossShieldHit',{x:end.x,z:end.z,heavy});}
+ let applied=block||outOfRange||shieldBlock?0:Math.min(b.hp,damage);
  f.bossShots++;f.bossDamage+=applied;
- this.emit('laserShot',{id:f.id,x:f.x,z:f.z,toX:block?.x??end.x,toZ:block?.z??end.z,heavy,damage:applied,blocked:!!block,outOfRange});
- if(block||outOfRange)return;
+ this.emit('laserShot',{id:f.id,x:f.x,z:f.z,toX:block?.x??end.x,toZ:block?.z??end.z,heavy,damage:applied,blocked:!!block,shieldBlock,outOfRange});
+ if(block||outOfRange||shieldBlock)return;
  b.hp=Math.max(0,b.hp-damage);
+ b.shieldPressure=Math.min(100,b.shieldPressure+damage);
  if(heavy&&b.attack==='idle'){b.hitVisual=.28;b.visualHitSerial++;}
  if(b.hp<=0){
-  b.phase=b.tier<3?'resurrect':'dead';b.age=0;b.attack='idle';b.grabbed=null;
+  b.phase=b.tier<3?'resurrect':'dead';b.age=0;b.attack='idle';b.grabbed=null;b.shieldPhase='stowed';
   b.nextMaxHp=b.tier<3?health[b.tier+1]:0;
   this.emit(b.phase==='dead'?'bossFinalFall':'bossCollapse',{tier:b.tier});
  }
@@ -588,6 +597,7 @@ Sim.prototype.bossBeam=function(shot){
 Sim.prototype.bossStep=function(dt){
  let b=this.boss;b.age+=dt;
  b.hitVisual=Math.max(0,(b.hitVisual||0)-dt);
+ b.shieldHitVisual=Math.max(0,b.shieldHitVisual-dt);
  if(b.phase==='arrival'){
   for(let f of this.fighters){
    let begin=1.95+f.id*.19;
@@ -613,6 +623,13 @@ Sim.prototype.bossStep=function(dt){
  }
  if(b.phase==='battle'){
   b.battleTime+=dt;b.chaseAge+=dt;b.pursuitClock+=dt;
+  b.shieldPressure=Math.max(0,b.shieldPressure-dt*1.4);
+  if(b.shieldPhase!=='stowed'){
+   b.shieldAge+=dt;
+   if(b.shieldPhase==='deploy'&&b.shieldAge>=shieldDeploy){b.shieldPhase='active';b.shieldAge=0;this.emit('bossShieldLocked',{});}
+   else if(b.shieldPhase==='active'&&b.shieldAge>=shieldDuration){b.shieldPhase='retract';b.shieldAge=0;this.emit('bossShieldRetract',{});}
+   else if(b.shieldPhase==='retract'&&b.shieldAge>=shieldRetract){b.shieldPhase='stowed';b.shieldAge=0;b.cooldown=Math.max(b.cooldown,.65);}
+  }
   if(b.pursuitClock>=3.4){b.pursuitClock=0;b.aimHold=.45;}
   b.aimHold=Math.max(0,b.aimHold-dt);
   let living=this.fighters.filter(f=>!f.ko);
@@ -627,7 +644,8 @@ Sim.prototype.bossStep=function(dt){
    let desiredYaw=Math.atan2(-dx,-dz);
    let delta=Math.atan2(Math.sin(desiredYaw-b.yaw),Math.cos(desiredYaw-b.yaw));
    b.yaw+=cap(delta,-2.8*dt,2.8*dt);
-   let speed=b.aimHold>0||b.attack==='beam'?0:b.attack==='claw'?5.1:b.attack==='charge'?1.9:3.45+b.tier*.25;
+   let speed=b.shieldPhase==='deploy'||b.shieldPhase==='retract'||b.aimHold>0||b.attack==='beam'?0:
+    b.attack==='claw'?5.1:b.attack==='charge'?1.9:b.shieldPhase==='active'?2.65:3.45+b.tier*.25;
    let gap=b.attack==='claw'?1.9:2.2;
    let step=Math.min(Math.max(0,r-gap),speed*dt);
    let oldX=b.x,oldZ=b.z;
@@ -713,14 +731,21 @@ Sim.prototype.bossStep=function(dt){
  b.clawOpen=.28;
  if(b.attack==='idle'){
   b.cooldown-=dt;
+  if(b.shieldPhase==='stowed'&&this.time>=b.shieldReadyAt&&b.battleTime>=5&&
+   (b.shieldPressure>=18||b.battleTime>=12)){
+   b.shieldPhase='deploy';b.shieldAge=0;b.shieldReadyAt=this.time+shieldCooldown;
+   b.shieldPressure=0;b.cooldown=.25;b.aimHold=0;
+   this.emit('bossShieldDeploy',{duration:shieldDuration,cooldown:shieldCooldown});
+  }
+  if(b.shieldPhase==='deploy'||b.shieldPhase==='retract')return;
   if(b.cooldown<=0){
    let living=this.fighters.filter(f=>!f.ko);
    let near=living.filter(f=>f.inv<=0).sort((a,c)=>distance(a,b)-distance(c,b))[0];
    let crowded=living.filter(f=>distance(f,b)<5.1).length;
-   if(crowded>=2&&this.random()<.62){
+   if(b.shieldPhase!=='active'&&crowded>=2&&this.random()<.62){
     b.attack='slamWind';b.attackAge=0;b.attackSerial++;b.targetIds=[];
     this.emit('bossSlamWind',{x:b.x,z:b.z});
-   }else if(near&&distance(near,b)<5.2&&this.random()<.82){
+   }else if(b.shieldPhase!=='active'&&near&&distance(near,b)<5.2&&this.random()<.82){
     b.attack='claw';b.attackAge=0;b.grabbed=null;b.targetIds=[near.id];
     b.attackSerial++;
     this.emit('bossClawWind',{id:near.id});
@@ -755,7 +780,7 @@ Sim.prototype.bossStep=function(dt){
    while(b.shots<b.targetIds.length&&b.attackAge>=b.shots*.28){
     this.bossBeam(b.shots);b.shots++;
    }
-   if(b.attackAge>.85){b.attack='idle';b.cooldown=Math.max(1.2,3.0-b.tier*.38);}
+   if(b.attackAge>.85){b.attack='idle';b.cooldown=b.shieldPhase==='active'?.55:Math.max(1.2,3.0-b.tier*.38);}
   }else if(b.attack==='claw'){
    b.clawOpen=.85;
    if(b.attackAge>=.53&&b.grabbed===null){
@@ -806,7 +831,7 @@ class GLBAsset{
 }
 class RigPlayer{
  constructor(asset){this.asset=asset;this.time=0;this.speed=1;this.playing=true;this.loop=true;this.eventQueue=[];this.clip=null;this.previous=null;this.fade=0;this.fadeDuration=.12;this.translations=asset.nodes.map(n=>[...(n.translation||[0,0,0])]);this.rotations=asset.nodes.map(n=>[...(n.rotation||[0,0,0,1])]);this.world=asset.nodes.map(()=>Math3D.identity());this.skin=asset.json.skins[0];this.inverse=asset.accessor(this.skin.inverseBindMatrices);this.palette=new Float32Array(this.skin.joints.length*16);this.setClip('Idle',{fade:0});}
- setClip(name,{fade=.12,loop}={}){const clip=this.asset.clips.find(c=>c.name===name);if(!clip)throw new Error('Unknown animation: '+name);this.previous=fade>0?{T:this.translations.map(x=>x.slice()),Q:this.rotations.map(x=>x.slice())}:null;this.fade=0;this.fadeDuration=fade;this.clip=clip;this.time=0;this.loop=loop??clip.extras?.loop??false;this.eventQueue=[];this.evaluate();return this;}
+ setClip(name,{fade=.12,loop}={}){const clip=this.asset.clips.find(c=>c.name===name);if(!clip)throw new Error('Unknown animation: '+name);this.previous=fade>0?{T:this.translations.map(x=>x.slice()),Q:this.rotations.map(x=>x.slice())}:null;if(this.previous&&this.poseBase){const p=this.poseBase;this.previous.T[p.index]=p.translation;this.previous.Q[p.index]=p.rotation;}this.fade=0;this.fadeDuration=fade;this.clip=clip;this.time=0;this.loop=loop??clip.extras?.loop??false;this.eventQueue=[];this.evaluate();return this;}
  seek(time){this.time=Math.max(0,Math.min(this.clip.extras.duration,time));this.previous=null;this.evaluate();return this;}
  update(dt){dt=Math.max(0,Math.min(.1,dt));if(this.playing){const d=this.clip.extras.duration,old=this.time;this.time+=dt*this.speed;this.fade+=dt;const ev=this.clip.extras.events||[];if(this.time>d&&this.loop){for(const e of ev)if(e.time>old)this.eventQueue.push({...e,clip:this.clip.name});this.time%=d;for(const e of ev)if(e.time<=this.time)this.eventQueue.push({...e,clip:this.clip.name});}else{this.time=Math.min(this.time,d);for(const e of ev)if(e.time>old&&e.time<=this.time)this.eventQueue.push({...e,clip:this.clip.name});}this.evaluate();}}
  consumeEvents(){const e=this.eventQueue;this.eventQueue=[];return e;}
@@ -815,6 +840,7 @@ class RigPlayer{
   this.asset.nodes.forEach((n,i)=>{this.translations[i]=[...(n.translation||[0,0,0])];this.rotations[i]=[...(n.rotation||[0,0,0,1])];});
   for(const track of this.clip.tracks){const ts=track.times,vals=track.values,dim=track.path==='rotation'?4:3;let lo=0,hi=ts.length-1;while(lo+1<hi){const m=(lo+hi)>>1;if(ts[m]<=this.time)lo=m;else hi=m;}let u=Math.max(0,Math.min(1,(this.time-ts[lo])/(ts[hi]-ts[lo]||1)));if(track.interpolation==='STEP')u=0;const a=Array.from(vals.subarray(lo*dim,lo*dim+dim)),b=Array.from(vals.subarray(hi*dim,hi*dim+dim));if(track.path==='rotation')this.rotations[track.node]=Math3D.slerp(a,b,u);else if(track.path==='translation')this.translations[track.node]=a.map((x,i)=>x+(b[i]-x)*u);}
   if(this.previous){const u=Math.min(1,this.fade/(this.fadeDuration||1));for(let i=0;i<this.translations.length;i++){this.translations[i]=this.previous.T[i].map((v,k)=>v+(this.translations[i][k]-v)*u);this.rotations[i]=Math3D.slerp(this.previous.Q[i],this.rotations[i],u);}if(u>=1)this.previous=null;}
+  if(this.poseModifier)this.poseModifier(this);
   const done=new Uint8Array(this.world.length);const visit=i=>{if(done[i])return;const p=this.asset.parents[i];if(p>=0)visit(p);const n=this.asset.nodes[i],local=n.matrix?new Float32Array(n.matrix):Math3D.trs(this.translations[i],this.rotations[i],n.scale);this.world[i]=p<0?local:Math3D.mul(this.world[p],local);done[i]=1;};
   this.asset.nodes.forEach((_,i)=>visit(i));this.skin.joints.forEach((node,i)=>this.palette.set(Math3D.mul(this.world[node],this.inverse.subarray(i*16,i*16+16)),i*16));
  }
@@ -1125,9 +1151,30 @@ class BrawlScene{
   else if(boss.attack==='slamWind'||boss.attack==='slamImpact'){key='stomp-'+boss.attackSerial;clip='Stomp';loop=false;}
   else if(boss.attack==='charge'||boss.attack==='beam'){key='cannon-'+boss.attackSerial;clip='Cannon_Fire';loop=false;speed=.76;}
   else if(boss.attack==='claw'){key='sword-'+boss.attackSerial;clip='Sword_Slash';loop=false;}
+  else if(boss.shieldPhase==='deploy'||boss.shieldPhase==='retract'){key='shield-brace';clip='Guard';}
   else if(boss.hitVisual>0){key='hit-'+boss.visualHitSerial;clip='Hit_Reaction';loop=false;}
-  else if(boss.aimHold>0){key='guard';clip='Guard';}
+  else if(boss.shieldPhase==='active'||boss.aimHold>0){key='guard';clip='Guard';}
   else if(boss.moving){key='run';clip='Run';}
+  // Shield_Mount is a skin joint on the imported Crimson rig. Swing the actual
+  // armoured panel around the left shoulder and lock it ahead of the helmet.
+  const rig=this.crimson.rig;
+  rig.poseModifier=player=>{
+   player.poseBase=null;
+   const phase=boss.shieldPhase,age=boss.shieldAge||0;
+   const amount=phase==='active'?1:phase==='deploy'?smooth(0,.8,age):
+    phase==='retract'?1-smooth(0,.7,age):0;
+   if(amount<=0)return;
+   const mount=player.asset.byName.get('Shield_Mount');
+   if(mount===undefined)return;
+   const t=player.translations[mount],base=t.slice();
+   player.poseBase={index:mount,translation:base,rotation:player.rotations[mount].slice()};
+   const swing=amount<.52?smooth(0,.52,amount):1;
+   const lock=amount>.52?smooth(.52,1,amount):0;
+   t[0]=base[0]-1.05*swing+.25*lock+.28*(boss.shieldHitVisual/.24);
+   t[1]=base[1]+.38*swing-.45*lock;
+   t[2]=base[2]+.38*swing+1.04*lock-.07*(boss.shieldHitVisual/.24);
+   player.rotations[mount]=Math3D.slerp(player.rotations[mount],[0,1,0,0],amount);
+  };
   if(this.bossClipKey!==key){this.crimson.play(clip,{fade:this.bossClipKey?.12:0,loop});this.bossClipKey=key;}
   this.crimson.rig.speed=speed;
   this.crimson.update(this.visualDt||1/60);
@@ -1138,6 +1185,7 @@ class BrawlScene{
   this.shadow(boss.x||0,boss.z||0,6.0,.65);
   this.crimson.draw(root,{tint:defeated?[.68,.72,.76]:[1,1,1]});
   this.bossMuzzle=this.crimson.socket('Socket_Muzzle',root).position;
+  this.bossShield=this.crimson.socket('Socket_Shield',root).position;
   if(charge>0){const radius=.25+charge*.48;
    R.draw(this.mesh.ring,M4.trs(this.bossMuzzle,[Math.PI/2,0,0],[radius,radius,.045]),
     {tint:rgb('#ff8b31'),unlit:true,blend:true,alpha:charge*.85,depthWrite:false});}
@@ -1170,7 +1218,9 @@ class BrawlScene{
   if(e.type==='bossLand'){this.shake=Math.max(this.shake,.40);this.effects.push({kind:'impact',x:e.x,y:.8,z:e.z,life:.45,max:.45});}
   if(e.type==='bossSlam'){this.shake=Math.max(this.shake,.36);this.effects.push({kind:'impact',x:e.x,y:.6,z:e.z,life:.36,max:.36});for(let i=0;i<14;i++)this.effects.push({kind:'chip',x:e.x,y:.2,z:e.z,vx:Math.sin(i*6.28/14)*6,vy:2+this.random()*3,vz:Math.cos(i*6.28/14)*6,life:.65,max:.65,color:'#e9b66c',size:.055});}
   if(e.type==='bossCollapse'||e.type==='bossFinalFall'){this.shake=Math.max(this.shake,.28);for(let i=0;i<18;i++)this.effects.push({kind:'chip',x:sim.boss.x,y:1.7,z:sim.boss.z,vx:(this.random()-.5)*7,vy:1+this.random()*6,vz:(this.random()-.5)*7,life:.6+this.random()*.5,max:1,color:i%2?'#e2b963':'#76eaff',size:.035+this.random()*.04});}
-  if(e.type==='laserShot'){let f=sim.fighters[e.id],muzzle=M4.point(M4.trs([f.x,f.y,f.z],[0,f.yaw,0]),[.53,1.28,1.65]);this.effects.push({kind:'beam',a:muzzle,b:[e.toX,e.blocked?1.45:e.outOfRange?1.55:2.0,e.toZ],color:e.heavy?'#d4faff':'#6feaff',width:e.heavy?.085:.045,life:.22,max:.22});if(e.blocked)this.effects.push({kind:'impact',x:e.toX,y:1.45,z:e.toZ,life:.15,max:.15});}
+  if(e.type==='bossShieldDeploy'||e.type==='bossShieldLocked'||e.type==='bossShieldRetract')this.effects.push({kind:'impact',x:sim.boss.x,y:2.3,z:sim.boss.z,life:.28,max:.28});
+  if(e.type==='bossShieldHit'){const p=this.bossShield||[e.x,2.2,e.z];this.effects.push({kind:'impact',x:p[0],y:p[1],z:p[2],life:.24,max:.24});for(let i=0;i<6;i++)this.effects.push({kind:'chip',x:p[0],y:p[1],z:p[2],vx:(this.random()-.5)*3,vy:(this.random()-.5)*3,vz:(this.random()-.5)*3,life:.24,max:.24,color:'#98eaff',size:.035});}
+  if(e.type==='laserShot'){let f=sim.fighters[e.id],muzzle=M4.point(M4.trs([f.x,f.y,f.z],[0,f.yaw,0]),[.53,1.28,1.65]);const end=e.shieldBlock&&this.bossShield?this.bossShield:[e.toX,e.blocked?1.45:e.outOfRange?1.55:2.0,e.toZ];this.effects.push({kind:'beam',a:muzzle,b:end,color:e.heavy?'#d4faff':'#6feaff',width:e.heavy?.085:.045,life:.22,max:.22});if(e.blocked)this.effects.push({kind:'impact',x:e.toX,y:1.45,z:e.toZ,life:.15,max:.15});}
   if(e.type==='bossThrowLand'){this.shake=Math.max(this.shake,.11);this.effects.push({kind:'impact',x:e.x,y:.25,z:e.z,life:.24,max:.24});}
   if(e.type==='bossLaser')this.effects.push({kind:'beam',a:this.bossMuzzle||[e.x,1.7,e.z+1.8],b:[e.toX,1.35,e.toZ],color:'#ff9d43',width:.13,life:.31,max:.31});
   if(e.type==='ko'){let f=sim.fighters[e.id];if(sim.cloud.active)this.pops.push({id:e.id,angle:this.random()*Math.PI*2,life:1.15,max:1.15,rotate:.50});}
@@ -1252,7 +1302,7 @@ class BrawlAudio{
  tone(frequency=180,duration=.1,volume=.09,type='sine'){let c=this.ctx;if(!c||this.muted||!this.settings.sfx||c.state!=='running')return;let o=c.createOscillator(),g=c.createGain(),t=c.currentTime;o.type=type;o.frequency.setValueAtTime(frequency,t);o.frequency.exponentialRampToValueAtTime(Math.max(30,frequency*.32),t+duration);g.gain.setValueAtTime(volume,t);g.gain.exponentialRampToValueAtTime(.001,t+duration);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+duration+.02);}
  laugh(){let c=this.ctx;if(!c||this.muted||!this.settings.sfx||c.state!=='running')return;for(let i=0;i<5;i++){let t=c.currentTime+i*.27,o=c.createOscillator(),g=c.createGain(),f=c.createBiquadFilter();o.type='sawtooth';o.frequency.setValueAtTime(112-i*7,t);o.frequency.exponentialRampToValueAtTime(72-i*4,t+.21);f.type='lowpass';f.frequency.value=430+i*36;g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(.065,t+.035);g.gain.exponentialRampToValueAtTime(.001,t+.23);o.connect(f);f.connect(g);g.connect(c.destination);o.start(t);o.stop(t+.25);}}
  noise(duration=.13,volume=.12,filter=950){let c=this.ctx;if(!c||this.muted||!this.settings.sfx||c.state!=='running')return;let n=Math.max(1,Math.floor(c.sampleRate*duration)),b=c.createBuffer(1,n,c.sampleRate),data=b.getChannelData(0);for(let i=0;i<n;i++)data[i]=(Math.random()*2-1)*(1-i/n);let s=c.createBufferSource(),g=c.createGain(),f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=filter;g.gain.value=volume;s.buffer=b;s.connect(f);f.connect(g);g.connect(c.destination);s.start();}
- event(e){if(e.type==='hit'){this.tone(e.heavy?91:160,e.heavy?.19:.1,e.heavy?.16:.11,'triangle');this.noise(e.heavy?.17:.10,e.heavy?.19:.13,e.heavy?750:1500);}if(e.type==='autoPush'){this.tone(e.strong?105:190,.22,.15,'triangle');this.noise(.18,.14,750);}if(e.type==='swing')this.noise(.10,.045,2200);if(e.type==='pickup')this.tone(530,.08,.035);if(e.type==='throw')this.noise(.16,.09,2800);if(e.type==='dodge')this.noise(.17,.06,1700);if(e.type==='perfectCounter'){this.tone(690,.16,.07);this.tone(1050,.12,.04);}if(e.type==='ko'){this.tone(240,.38,.12,'triangle');this.noise(.25,.08,650);}if(e.type==='laserShot')this.tone(e.heavy?390:670,e.heavy?.27:.12,e.heavy?.08:.035,'sawtooth');if(e.type==='bossLaser'){this.tone(88,.47,.16,'sawtooth');this.noise(.32,.10,1000);}if(e.type==='bossLand'||e.type==='bossCollapse'||e.type==='bossSlam'){this.tone(62,.60,.23,'triangle');this.noise(.60,.25,430);}if(e.type==='bossSlamWind')this.tone(132,.66,.11,'sawtooth');if(e.type==='bossResurrected')this.tone(260,.5,.12,'sawtooth');if(e.type==='bossLaugh')this.laugh();}
+ event(e){if(e.type==='hit'){this.tone(e.heavy?91:160,e.heavy?.19:.1,e.heavy?.16:.11,'triangle');this.noise(e.heavy?.17:.10,e.heavy?.19:.13,e.heavy?750:1500);}if(e.type==='autoPush'){this.tone(e.strong?105:190,.22,.15,'triangle');this.noise(.18,.14,750);}if(e.type==='swing')this.noise(.10,.045,2200);if(e.type==='pickup')this.tone(530,.08,.035);if(e.type==='throw')this.noise(.16,.09,2800);if(e.type==='dodge')this.noise(.17,.06,1700);if(e.type==='perfectCounter'){this.tone(690,.16,.07);this.tone(1050,.12,.04);}if(e.type==='ko'){this.tone(240,.38,.12,'triangle');this.noise(.25,.08,650);}if(e.type==='laserShot')this.tone(e.heavy?390:670,e.heavy?.27:.12,e.heavy?.08:.035,'sawtooth');if(e.type==='bossLaser'){this.tone(88,.47,.16,'sawtooth');this.noise(.32,.10,1000);}if(e.type==='bossLand'||e.type==='bossCollapse'||e.type==='bossSlam'){this.tone(62,.60,.23,'triangle');this.noise(.60,.25,430);}if(e.type==='bossSlamWind')this.tone(132,.66,.11,'sawtooth');if(e.type==='bossResurrected')this.tone(260,.5,.12,'sawtooth');if(e.type==='bossShieldDeploy'||e.type==='bossShieldRetract'){this.tone(e.type==='bossShieldDeploy'?210:320,.42,.11,'sawtooth');this.noise(.28,.08,730);}if(e.type==='bossShieldLocked')this.tone(115,.3,.14,'triangle');if(e.type==='bossShieldHit'){this.tone(e.heavy?410:540,.16,.065,'square');this.noise(.13,.08,1500);}if(e.type==='bossLaugh')this.laugh();}
  voice(line){if(this.muted||!this.settings.voice||!line.audio||performance.now()-this.lastVoice<3200)return;this.lastVoice=performance.now();this.stop();let a=new Audio(asset(line.audio));a.volume=.66;this.clip=a;a.play().catch(()=>{});}
 }
 class BrawlApp{
@@ -1333,6 +1383,9 @@ class BrawlApp{
    if(e.type==='bossRevive')this.makePop('REVIVED',e.id,'#8aeaff');
    if(e.type==='bossBattle')this.toast('USE COVER AND HIGH GROUND · FIRE TOGETHER',2.5);
    if(e.type==='bossCharge')this.toast('CANNON CHARGING · MOVE OR DODGE',1.1);
+   if(e.type==='bossShieldDeploy')this.toast('SHIELD DEPLOYING · FLANK CRIMSON',1.5);
+   if(e.type==='bossShieldLocked')this.toast('FRONT SHIELD ACTIVE · 10 SECONDS',1.4);
+   if(e.type==='bossShieldRetract')this.toast('SHIELD DOWN · FIRE NOW',1.3);
    if(e.type==='bossClawWind')this.toast('GRAB REACHING · DODGE AWAY',.9);
    if(e.type==='bossSlamWind')this.toast('GROUND SMASH · RETREAT OR TAKE HIGH GROUND',1.1);
    if(e.type==='bossSlam')this.toast('SHOCKWAVE · GET CLEAR',.9);
@@ -1353,7 +1406,8 @@ class BrawlApp{
    let meter=$('bossHud').querySelector('.boss-health');meter.setAttribute('aria-valuemax',Math.ceil(max));meter.setAttribute('aria-valuenow',Math.ceil(hp));
    $('bossHealthValue').textContent=Math.ceil(hp)+' / '+Math.ceil(max);
    $('bossPhaseLabel').textContent=b.phase==='arrival'?'DESCENDING':b.phase==='resurrect'?'REASSEMBLING':b.phase==='dead'?'FINAL COLLAPSE':b.phase==='laugh'?'VICTORY LAUGH':'STAGE '+(b.tier+1)+' / 4';
-   $('bossResurrections').textContent=b.phase==='resurrect'?'RESURRECTION '+(b.tier+1)+' / 3':(3-b.tier)+' RESURRECTIONS REMAIN';
+   $('bossResurrections').textContent=b.phase==='resurrect'?'RESURRECTION '+(b.tier+1)+' / 3':(3-b.tier)+' RESURRECTIONS';
+   $('bossShieldStatus').textContent=b.phase!=='battle'?'':b.shieldPhase==='active'?'· SHIELD '+Math.ceil(10-b.shieldAge)+'s':b.shieldPhase==='deploy'?'· SHIELD OPENING':b.shieldPhase==='retract'?'· SHIELD CLOSING':s.time<b.shieldReadyAt?'· SHIELD IN '+Math.ceil(b.shieldReadyAt-s.time)+'s':'· SHIELD READY';
    $('modeTitle').textContent='CRIMSON · FINAL BATTLE';$('clock').textContent=this.format(s.time);
    $('condition').textContent=p.ko?'OUT':s.condition(p);$('staminaValue').textContent=Math.round(p.stamina);$('staminaBar').style.width=p.stamina+'%';
    $('rageBar').style.width='0%';$('rageLabel').textContent='LASER CREW';$('heldItem').textContent=p.ko?'WEAPON LOST':'LASER CARBINE READY';$('revenge').textContent='CRIMSON TARGETS THE WHOLE CREW';

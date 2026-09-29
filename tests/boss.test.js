@@ -165,4 +165,43 @@ assert(quakeEvents.some(e=>e.type==='bossSlam'),'ground smash has a real impact 
 assert(floorTarget.hp<100,'nearby ground-level players take shockwave damage');
 assert.equal(raisedTarget.hp,100,'the raised deck protects from the shockwave');
 
-console.log('Boss revival, four stages, landing physics, ally balance, cover, high ground, ground smash, pursuit and both endings passed.');
+// The physical front shield catches crew lasers for ten seconds. Its back
+// remains a weak side and the cooldown starts when deployment begins.
+const shield=new BrawlSim.Sim({selected:0,ai:false,seed:51});
+shield.beginBoss(0);frames(shield,290);
+for(const f of shield.fighters){f.inv=1000;f.weaponCooldown=1000;}
+const guard=shield.boss,gunner=shield.fighters[0];
+guard.x=0;guard.z=0;guard.yaw=Math.PI;guard.shieldPhase='active';guard.shieldAge=0;
+gunner.x=0;gunner.z=4;gunner.weaponCooldown=0;
+const guardedHp=guard.hp;
+shield.bossFire(gunner,true);
+const blockedShot=shield.drainEvents().findLast(e=>e.type==='laserShot');
+assert.equal(guard.hp,guardedHp,'front shield prevents projectile damage');
+assert.equal(blockedShot.shieldBlock,true,'the shot reports a shield impact');
+gunner.z=-4;shield.bossFire(gunner,false);
+assert(guard.hp<guardedHp,'rear projectiles still damage the boss');
+guard.shieldPhase='deploy';guard.shieldAge=0;guard.shieldReadyAt=shield.time+60;
+guard.shieldPressure=0;guard.battleTime=5;guard.cooldown=1000;guard.attack='idle';
+let deployFrames=0;
+while(guard.shieldPhase==='deploy'&&deployFrames<60){frames(shield,1);deployFrames++;}
+assert.equal(guard.shieldPhase,'active');
+assert(deployFrames>=48&&deployFrames<=49,'the shield has a visible deployment window');
+guard.cooldown=0;
+let shieldAttacks=new Set(),shieldEvents=[],activeFrames=0;
+while(guard.shieldPhase==='active'&&shieldAttacks.size<10){
+ shield.step(1/60);activeFrames++;shieldEvents.push(...shield.drainEvents());shieldAttacks.add(guard.attack);
+}
+assert.equal(guard.shieldPhase,'retract','protection ends after ten seconds');
+assert(activeFrames>=600&&activeFrames<=601,'active shield duration is ten seconds');
+assert(shieldEvents.some(e=>e.type==='bossLaser'),'the cannon fires while shielding');
+assert(!shieldAttacks.has('claw')&&!shieldAttacks.has('slamWind')&&!shieldAttacks.has('slamImpact'),
+ 'sword, grab and ground smash stay disabled while shielding');
+assert(shield.time<guard.shieldReadyAt,'shield is still cooling after retraction');
+guard.shieldPhase='stowed';guard.shieldAge=0;guard.attack='idle';guard.cooldown=0;
+guard.shieldPressure=100;shield.time=guard.shieldReadyAt-2/60;
+frames(shield,1);
+assert.equal(guard.shieldPhase,'stowed','shield cannot redeploy before one minute');
+guard.attack='idle';guard.cooldown=0;frames(shield,2);
+assert.equal(guard.shieldPhase,'deploy','shield becomes available at the one-minute mark');
+
+console.log('Boss revival, four stages, landing physics, ally balance, cover, high ground, shield timing and cannon-only guard, pursuit and both endings passed.');

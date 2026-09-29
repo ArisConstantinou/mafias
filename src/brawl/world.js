@@ -231,9 +231,30 @@ class BrawlScene{
   else if(boss.attack==='slamWind'||boss.attack==='slamImpact'){key='stomp-'+boss.attackSerial;clip='Stomp';loop=false;}
   else if(boss.attack==='charge'||boss.attack==='beam'){key='cannon-'+boss.attackSerial;clip='Cannon_Fire';loop=false;speed=.76;}
   else if(boss.attack==='claw'){key='sword-'+boss.attackSerial;clip='Sword_Slash';loop=false;}
+  else if(boss.shieldPhase==='deploy'||boss.shieldPhase==='retract'){key='shield-brace';clip='Guard';}
   else if(boss.hitVisual>0){key='hit-'+boss.visualHitSerial;clip='Hit_Reaction';loop=false;}
-  else if(boss.aimHold>0){key='guard';clip='Guard';}
+  else if(boss.shieldPhase==='active'||boss.aimHold>0){key='guard';clip='Guard';}
   else if(boss.moving){key='run';clip='Run';}
+  // Shield_Mount is a skin joint on the imported Crimson rig. Swing the actual
+  // armoured panel around the left shoulder and lock it ahead of the helmet.
+  const rig=this.crimson.rig;
+  rig.poseModifier=player=>{
+   player.poseBase=null;
+   const phase=boss.shieldPhase,age=boss.shieldAge||0;
+   const amount=phase==='active'?1:phase==='deploy'?smooth(0,.8,age):
+    phase==='retract'?1-smooth(0,.7,age):0;
+   if(amount<=0)return;
+   const mount=player.asset.byName.get('Shield_Mount');
+   if(mount===undefined)return;
+   const t=player.translations[mount],base=t.slice();
+   player.poseBase={index:mount,translation:base,rotation:player.rotations[mount].slice()};
+   const swing=amount<.52?smooth(0,.52,amount):1;
+   const lock=amount>.52?smooth(.52,1,amount):0;
+   t[0]=base[0]-1.05*swing+.25*lock+.28*(boss.shieldHitVisual/.24);
+   t[1]=base[1]+.38*swing-.45*lock;
+   t[2]=base[2]+.38*swing+1.04*lock-.07*(boss.shieldHitVisual/.24);
+   player.rotations[mount]=Math3D.slerp(player.rotations[mount],[0,1,0,0],amount);
+  };
   if(this.bossClipKey!==key){this.crimson.play(clip,{fade:this.bossClipKey?.12:0,loop});this.bossClipKey=key;}
   this.crimson.rig.speed=speed;
   this.crimson.update(this.visualDt||1/60);
@@ -244,6 +265,7 @@ class BrawlScene{
   this.shadow(boss.x||0,boss.z||0,6.0,.65);
   this.crimson.draw(root,{tint:defeated?[.68,.72,.76]:[1,1,1]});
   this.bossMuzzle=this.crimson.socket('Socket_Muzzle',root).position;
+  this.bossShield=this.crimson.socket('Socket_Shield',root).position;
   if(charge>0){const radius=.25+charge*.48;
    R.draw(this.mesh.ring,M4.trs(this.bossMuzzle,[Math.PI/2,0,0],[radius,radius,.045]),
     {tint:rgb('#ff8b31'),unlit:true,blend:true,alpha:charge*.85,depthWrite:false});}
@@ -276,7 +298,9 @@ class BrawlScene{
   if(e.type==='bossLand'){this.shake=Math.max(this.shake,.40);this.effects.push({kind:'impact',x:e.x,y:.8,z:e.z,life:.45,max:.45});}
   if(e.type==='bossSlam'){this.shake=Math.max(this.shake,.36);this.effects.push({kind:'impact',x:e.x,y:.6,z:e.z,life:.36,max:.36});for(let i=0;i<14;i++)this.effects.push({kind:'chip',x:e.x,y:.2,z:e.z,vx:Math.sin(i*6.28/14)*6,vy:2+this.random()*3,vz:Math.cos(i*6.28/14)*6,life:.65,max:.65,color:'#e9b66c',size:.055});}
   if(e.type==='bossCollapse'||e.type==='bossFinalFall'){this.shake=Math.max(this.shake,.28);for(let i=0;i<18;i++)this.effects.push({kind:'chip',x:sim.boss.x,y:1.7,z:sim.boss.z,vx:(this.random()-.5)*7,vy:1+this.random()*6,vz:(this.random()-.5)*7,life:.6+this.random()*.5,max:1,color:i%2?'#e2b963':'#76eaff',size:.035+this.random()*.04});}
-  if(e.type==='laserShot'){let f=sim.fighters[e.id],muzzle=M4.point(M4.trs([f.x,f.y,f.z],[0,f.yaw,0]),[.53,1.28,1.65]);this.effects.push({kind:'beam',a:muzzle,b:[e.toX,e.blocked?1.45:e.outOfRange?1.55:2.0,e.toZ],color:e.heavy?'#d4faff':'#6feaff',width:e.heavy?.085:.045,life:.22,max:.22});if(e.blocked)this.effects.push({kind:'impact',x:e.toX,y:1.45,z:e.toZ,life:.15,max:.15});}
+  if(e.type==='bossShieldDeploy'||e.type==='bossShieldLocked'||e.type==='bossShieldRetract')this.effects.push({kind:'impact',x:sim.boss.x,y:2.3,z:sim.boss.z,life:.28,max:.28});
+  if(e.type==='bossShieldHit'){const p=this.bossShield||[e.x,2.2,e.z];this.effects.push({kind:'impact',x:p[0],y:p[1],z:p[2],life:.24,max:.24});for(let i=0;i<6;i++)this.effects.push({kind:'chip',x:p[0],y:p[1],z:p[2],vx:(this.random()-.5)*3,vy:(this.random()-.5)*3,vz:(this.random()-.5)*3,life:.24,max:.24,color:'#98eaff',size:.035});}
+  if(e.type==='laserShot'){let f=sim.fighters[e.id],muzzle=M4.point(M4.trs([f.x,f.y,f.z],[0,f.yaw,0]),[.53,1.28,1.65]);const end=e.shieldBlock&&this.bossShield?this.bossShield:[e.toX,e.blocked?1.45:e.outOfRange?1.55:2.0,e.toZ];this.effects.push({kind:'beam',a:muzzle,b:end,color:e.heavy?'#d4faff':'#6feaff',width:e.heavy?.085:.045,life:.22,max:.22});if(e.blocked)this.effects.push({kind:'impact',x:e.toX,y:1.45,z:e.toZ,life:.15,max:.15});}
   if(e.type==='bossThrowLand'){this.shake=Math.max(this.shake,.11);this.effects.push({kind:'impact',x:e.x,y:.25,z:e.z,life:.24,max:.24});}
   if(e.type==='bossLaser')this.effects.push({kind:'beam',a:this.bossMuzzle||[e.x,1.7,e.z+1.8],b:[e.toX,1.35,e.toZ],color:'#ff9d43',width:.13,life:.31,max:.31});
   if(e.type==='ko'){let f=sim.fighters[e.id];if(sim.cloud.active)this.pops.push({id:e.id,angle:this.random()*Math.PI*2,life:1.15,max:1.15,rotate:.50});}

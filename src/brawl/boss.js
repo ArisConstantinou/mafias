@@ -6,6 +6,7 @@ const cap=(n,a,b)=>Math.max(a,Math.min(b,n));
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const health=[280,340,400,460];
 const crewLaserRange=7.5;
+const shieldDeploy=.8,shieldDuration=10,shieldRetract=.7,shieldCooldown=60;
 BrawlSim.BOSS_LASER_RANGE=crewLaserRange;
 // Shared by collision, laser cover and the rendered boss-only arena.
 const arena={
@@ -50,6 +51,7 @@ Sim.prototype.beginBoss=function(roundWinner){
   cooldown:3.0,shots:0,targetIds:[],targetPoints:[],targetCursor:0,attackSerial:0,
   chaseTargetId:0,chaseAge:0,chaseTime:0,battleTime:0,stride:0,moving:0,
   pursuitClock:0,aimHold:0,avoidSide:1,
+  shieldPhase:'stowed',shieldAge:0,shieldReadyAt:0,shieldPressure:0,shieldHitVisual:0,
   clawOpen:.2,grabbed:null,hitVisual:0,visualHitSerial:0};
  for(let item of this.items)item.broken=true;
  for(let f of this.fighters){
@@ -88,14 +90,20 @@ Sim.prototype.bossFire=function(f,heavy=false){
  let r=distance(f,b),outOfRange=r>crewLaserRange;
  let end=outOfRange?{x:f.x+(b.x-f.x)*crewLaserRange/r,z:f.z+(b.z-f.z)*crewLaserRange/r}:b;
  let block=segmentCover(f,end),damage=heavy?31:f.id===this.selected?11:4;
- let applied=block||outOfRange?0:Math.min(b.hp,damage);
+ const fx=-Math.sin(b.yaw),fz=-Math.cos(b.yaw);
+ const dot=(f.x-b.x)*fx+(f.z-b.z)*fz;
+ const shieldBlock=!block&&!outOfRange&&b.shieldPhase==='active'&&dot>r*.34;
+ if(shieldBlock){end={x:b.x+fx*1.25,z:b.z+fz*1.25};b.shieldHitVisual=.24;
+  this.emit('bossShieldHit',{x:end.x,z:end.z,heavy});}
+ let applied=block||outOfRange||shieldBlock?0:Math.min(b.hp,damage);
  f.bossShots++;f.bossDamage+=applied;
- this.emit('laserShot',{id:f.id,x:f.x,z:f.z,toX:block?.x??end.x,toZ:block?.z??end.z,heavy,damage:applied,blocked:!!block,outOfRange});
- if(block||outOfRange)return;
+ this.emit('laserShot',{id:f.id,x:f.x,z:f.z,toX:block?.x??end.x,toZ:block?.z??end.z,heavy,damage:applied,blocked:!!block,shieldBlock,outOfRange});
+ if(block||outOfRange||shieldBlock)return;
  b.hp=Math.max(0,b.hp-damage);
+ b.shieldPressure=Math.min(100,b.shieldPressure+damage);
  if(heavy&&b.attack==='idle'){b.hitVisual=.28;b.visualHitSerial++;}
  if(b.hp<=0){
-  b.phase=b.tier<3?'resurrect':'dead';b.age=0;b.attack='idle';b.grabbed=null;
+  b.phase=b.tier<3?'resurrect':'dead';b.age=0;b.attack='idle';b.grabbed=null;b.shieldPhase='stowed';
   b.nextMaxHp=b.tier<3?health[b.tier+1]:0;
   this.emit(b.phase==='dead'?'bossFinalFall':'bossCollapse',{tier:b.tier});
  }
@@ -131,6 +139,7 @@ Sim.prototype.bossBeam=function(shot){
 Sim.prototype.bossStep=function(dt){
  let b=this.boss;b.age+=dt;
  b.hitVisual=Math.max(0,(b.hitVisual||0)-dt);
+ b.shieldHitVisual=Math.max(0,b.shieldHitVisual-dt);
  if(b.phase==='arrival'){
   for(let f of this.fighters){
    let begin=1.95+f.id*.19;
@@ -156,6 +165,13 @@ Sim.prototype.bossStep=function(dt){
  }
  if(b.phase==='battle'){
   b.battleTime+=dt;b.chaseAge+=dt;b.pursuitClock+=dt;
+  b.shieldPressure=Math.max(0,b.shieldPressure-dt*1.4);
+  if(b.shieldPhase!=='stowed'){
+   b.shieldAge+=dt;
+   if(b.shieldPhase==='deploy'&&b.shieldAge>=shieldDeploy){b.shieldPhase='active';b.shieldAge=0;this.emit('bossShieldLocked',{});}
+   else if(b.shieldPhase==='active'&&b.shieldAge>=shieldDuration){b.shieldPhase='retract';b.shieldAge=0;this.emit('bossShieldRetract',{});}
+   else if(b.shieldPhase==='retract'&&b.shieldAge>=shieldRetract){b.shieldPhase='stowed';b.shieldAge=0;b.cooldown=Math.max(b.cooldown,.65);}
+  }
   if(b.pursuitClock>=3.4){b.pursuitClock=0;b.aimHold=.45;}
   b.aimHold=Math.max(0,b.aimHold-dt);
   let living=this.fighters.filter(f=>!f.ko);
@@ -170,7 +186,8 @@ Sim.prototype.bossStep=function(dt){
    let desiredYaw=Math.atan2(-dx,-dz);
    let delta=Math.atan2(Math.sin(desiredYaw-b.yaw),Math.cos(desiredYaw-b.yaw));
    b.yaw+=cap(delta,-2.8*dt,2.8*dt);
-   let speed=b.aimHold>0||b.attack==='beam'?0:b.attack==='claw'?5.1:b.attack==='charge'?1.9:3.45+b.tier*.25;
+   let speed=b.shieldPhase==='deploy'||b.shieldPhase==='retract'||b.aimHold>0||b.attack==='beam'?0:
+    b.attack==='claw'?5.1:b.attack==='charge'?1.9:b.shieldPhase==='active'?2.65:3.45+b.tier*.25;
    let gap=b.attack==='claw'?1.9:2.2;
    let step=Math.min(Math.max(0,r-gap),speed*dt);
    let oldX=b.x,oldZ=b.z;
@@ -256,14 +273,21 @@ Sim.prototype.bossStep=function(dt){
  b.clawOpen=.28;
  if(b.attack==='idle'){
   b.cooldown-=dt;
+  if(b.shieldPhase==='stowed'&&this.time>=b.shieldReadyAt&&b.battleTime>=5&&
+   (b.shieldPressure>=18||b.battleTime>=12)){
+   b.shieldPhase='deploy';b.shieldAge=0;b.shieldReadyAt=this.time+shieldCooldown;
+   b.shieldPressure=0;b.cooldown=.25;b.aimHold=0;
+   this.emit('bossShieldDeploy',{duration:shieldDuration,cooldown:shieldCooldown});
+  }
+  if(b.shieldPhase==='deploy'||b.shieldPhase==='retract')return;
   if(b.cooldown<=0){
    let living=this.fighters.filter(f=>!f.ko);
    let near=living.filter(f=>f.inv<=0).sort((a,c)=>distance(a,b)-distance(c,b))[0];
    let crowded=living.filter(f=>distance(f,b)<5.1).length;
-   if(crowded>=2&&this.random()<.62){
+   if(b.shieldPhase!=='active'&&crowded>=2&&this.random()<.62){
     b.attack='slamWind';b.attackAge=0;b.attackSerial++;b.targetIds=[];
     this.emit('bossSlamWind',{x:b.x,z:b.z});
-   }else if(near&&distance(near,b)<5.2&&this.random()<.82){
+   }else if(b.shieldPhase!=='active'&&near&&distance(near,b)<5.2&&this.random()<.82){
     b.attack='claw';b.attackAge=0;b.grabbed=null;b.targetIds=[near.id];
     b.attackSerial++;
     this.emit('bossClawWind',{id:near.id});
@@ -298,7 +322,7 @@ Sim.prototype.bossStep=function(dt){
    while(b.shots<b.targetIds.length&&b.attackAge>=b.shots*.28){
     this.bossBeam(b.shots);b.shots++;
    }
-   if(b.attackAge>.85){b.attack='idle';b.cooldown=Math.max(1.2,3.0-b.tier*.38);}
+   if(b.attackAge>.85){b.attack='idle';b.cooldown=b.shieldPhase==='active'?.55:Math.max(1.2,3.0-b.tier*.38);}
   }else if(b.attack==='claw'){
    b.clawOpen=.85;
    if(b.attackAge>=.53&&b.grabbed===null){

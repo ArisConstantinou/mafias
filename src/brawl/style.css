@@ -74,6 +74,7 @@ body.mobile-controls .combat.punch svg{width:22px;height:22px}
 .boss-health{height:20px;background:#3b2425;border:1px solid #ffdba877;border-radius:4px;overflow:hidden;margin:9px 0 6px}
 .boss-health i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#a2492b,#ef8f43 53%,#ffd36b);box-shadow:inset 0 2px 2px #fff7,0 0 10px #ffc0789c;transition:width .12s linear}
 .boss-hud small{font-size:12px;color:#d9d4bf;font-weight:800;letter-spacing:.6px}
+.boss-hud #bossShieldStatus{color:#8ee9ff;margin-left:12px}
 body.boss-mode .combat.kick,body.boss-mode .combat.grab,body.boss-mode .combat.pick{display:none}
 body.boss-mode .actions{grid-template-columns:repeat(3,74px)}
 body.boss-mode .combat.punch{background:#246779;border-color:#8aefff;color:#e6fdff}
