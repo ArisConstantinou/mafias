@@ -90,7 +90,7 @@ fs.mkdirSync(out,{recursive:true});
     assert(front.pelvis[1]<back.pelvis[1]-.18,'boss lowers his center of mass');
     assert(front.head[1]<back.head[1]-.21,'helmet tucks behind the shield');
     assert(front.heelL[0]-front.heelR[0]>back.heelL[0]-back.heelR[0]+.45,'legs widen into a braced stance');
-    assert(front.muzzle[0]>front.shield[0]+.4,'cannon muzzle remains exposed beside the shield');
+    assert(front.muzzle[2]<front.shield[2]-.2,'inactive cannon retracts behind the shield while guarding');
    }
    assert.equal(front.draws,back.draws,'shield uses its existing skinned draw calls');
    assert.equal(front.tris,back.tris,'shield adds no geometry');

@@ -229,7 +229,8 @@ class BrawlScene{
   const revival=boss.phase==='resurrect',defeated=boss.phase==='dead';
   const attackAge=boss.attackAge||0,charge=boss.attack==='charge'?smooth(0,.95,attackAge):0;
   let key='idle',clip='Idle',loop=true,speed=1;
-  if(landing&&t<2.1){key='spawn';clip='Spawn';loop=false;}
+  if(boss.viewerClip){key='viewer-'+boss.viewerClip;clip=boss.viewerClip;loop=!!this.crimson.asset.clips.find(c=>c.name===clip)?.extras?.loop;}
+  else if(landing&&t<2.1){key='spawn';clip='Spawn';loop=false;}
   else if(revival&&t<1.3){key='rebuild-down';clip='Defeat_Kneel';loop=false;speed=2;}
   else if(revival){key='rebuild-up';clip='Spawn';loop=false;}
   else if(defeated){key='defeat';clip='Defeat_Kneel';loop=false;}
@@ -250,18 +251,19 @@ class BrawlScene{
     phase==='retract'?1-smooth(0,.7,age):0;
    const bone=name=>player.asset.byName.get(name);
    const original=[];
+   const save=i=>{if(i!==undefined&&!original.some(p=>p.index===i))original.push({index:i,translation:player.translations[i].slice(),rotation:player.rotations[i].slice()});};
    const pose=(name,rotation,weight=amount)=>{const i=bone(name);if(i===undefined)return;
-    original.push({index:i,translation:player.translations[i].slice(),rotation:player.rotations[i].slice()});
+    save(i);
     player.rotations[i]=Math3D.slerp(player.rotations[i],rotation,weight);
    };
    const q=(x,y=0,z=0)=>{const sx=Math.sin(x/2),cx=Math.cos(x/2),sy=Math.sin(y/2),cy=Math.cos(y/2),sz=Math.sin(z/2),cz=Math.cos(z/2);
     return[sx*cy*cz+cx*sy*sz,cx*sy*cz-sx*cy*sz,cx*cy*sz+sx*sy*cz,cx*cy*cz-sx*sy*sz];};
    const mount=bone('Shield_Mount');
    if(mount===undefined)return;
-   original.push({index:mount,translation:player.translations[mount].slice(),rotation:player.rotations[mount].slice()});
+   save(mount);
    const shieldImpact=Math.min(1,(boss.shieldHitVisual||0)/.24);
-   player.translations[mount]=[-.08-.13*amount,-.03+.10*amount,.16+.11*amount-.05*shieldImpact];
-   player.rotations[mount]=Math3D.slerp(q(.05,Math.PI),q(1.28,Math.PI-.25,-.10),amount);
+   player.translations[mount]=[.20-.41*amount,-.08+.15*amount,.08+.19*amount-.05*shieldImpact];
+   player.rotations[mount]=Math3D.slerp(q(.05,Math.PI/2),q(1.28,Math.PI-.25,-.10),amount);
    if(amount>0){
     pose('UpperArm_L',q(-.90+.12*shieldImpact,-.10,-.34),amount);
     pose('Forearm_L',q(-1.00,.08,-.08),amount);
@@ -278,15 +280,34 @@ class BrawlScene{
     pose('Shin_R',q(.50),amount);
     pose('Foot_R',q(-.55),amount);
     const pelvis=bone('Pelvis');
-    original.push({index:pelvis,translation:player.translations[pelvis].slice(),rotation:player.rotations[pelvis].slice()});
+    save(pelvis);
     player.translations[pelvis][1]-=.22*amount;
     player.translations[pelvis][2]+=.10*amount;
    }
+   // The imported palms and sword blade face the camera broadside in their
+   // bind pose. Roll the wrists around their long axes, keeping the shield's
+   // world-facing panel fixed while its left-hand grip turns inside it.
+   const qmul=(a,b)=>[
+    a[3]*b[0]+a[0]*b[3]+a[1]*b[2]-a[2]*b[1],
+    a[3]*b[1]-a[0]*b[2]+a[1]*b[3]+a[2]*b[0],
+    a[3]*b[2]+a[0]*b[1]-a[1]*b[0]+a[2]*b[3],
+    a[3]*b[3]-a[0]*b[0]-a[1]*b[1]-a[2]*b[2]
+   ];
+   const twist=q(0,Math.PI/2),untwist=q(0,-Math.PI/2);
+   for(const name of ['Hand_R','Hand_L']){const i=bone(name);save(i);player.rotations[i]=qmul(player.rotations[i],twist);}
+   const shieldOffset=player.translations[mount];
+   player.translations[mount]=[-shieldOffset[2],shieldOffset[1],shieldOffset[0]];
+   player.rotations[mount]=qmul(untwist,player.rotations[mount]);
+   // On guard the forearm-mounted cannon telescopes toward the elbow, behind
+   // the shield plate. It returns to its original mount as the shield closes.
+   const cannon=bone('Cannon');
+   if(cannon!==undefined&&amount>0){save(cannon);player.translations[cannon][0]-=.28*amount;player.translations[cannon][1]+=.52*amount;}
    player.poseBase=original;
   };
   if(this.bossClipKey!==key){this.crimson.play(clip,{fade:this.bossClipKey?.12:0,loop});this.bossClipKey=key;}
   this.crimson.rig.speed=speed;
-  this.crimson.update(this.visualDt||1/60);
+  if(boss.viewerTime!==undefined)this.crimson.rig.seek(boss.viewerTime);
+  else this.crimson.update(this.visualDt??1/60);
   const drop=landing?1-smooth(0,1.55,t):0;
   const hover=revival?Math.sin(smooth(1.3,3.4,t)*Math.PI)*.33:0;
   const root=M4.trs([boss.x||0,(boss.y||0)+drop*8+hover,boss.z||0],

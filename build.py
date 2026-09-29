@@ -39,3 +39,13 @@ for name in ['engine','combat','boss','crimson-core','crimson-adapter','world','
     brawl=brawl.replace('/*BRAWL_'+name.upper()+'*/',source.read_text(encoding='utf-8'))
 (ROOT/'brawl.html').write_bytes(brawl.encode('utf-8'))
 print(f'Built {len(brawl.encode())/1024/1024:.2f} MB single-file brawl.html')
+
+# The model viewer uses the same embedded, playable assets and renderer.
+viewer=(ROOT/'src'/'brawl'/'viewer-template.html').read_text(encoding='utf-8')
+viewer=viewer.replace('/*VIEWER_STYLE*/',(ROOT/'src'/'brawl'/'viewer-style.css').read_text(encoding='utf-8'))
+viewer=viewer.replace('/*BRAWL_ASSETS*/','window.BRAWL_ASSETS='+json.dumps(brawl_assets,ensure_ascii=False,separators=(',',':'))+';')
+for name in ['engine','combat','boss','crimson-core','crimson-adapter','world','viewer']:
+    source=ROOT/'src'/'engine.js' if name=='engine' else ROOT/'src'/'brawl'/f'{name}.js'
+    viewer=viewer.replace('/*BRAWL_'+name.upper()+'*/',source.read_text(encoding='utf-8'))
+(ROOT/'brawl-viewer.html').write_bytes(viewer.encode('utf-8'))
+print(f'Built {len(viewer.encode())/1024/1024:.2f} MB single-file brawl-viewer.html')
