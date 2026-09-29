@@ -5,6 +5,41 @@ const Sim=BrawlSim.Sim;
 const cap=(n,a,b)=>Math.max(a,Math.min(b,n));
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const health=[280,340,400,460];
+// Shared by collision, laser cover and the rendered boss-only arena.
+const arena={
+ cover:[{x:-4.4,z:-1.7,w:1.45,d:2.3},{x:4.4,z:-1.7,w:1.45,d:2.3},
+  {x:-3.7,z:2.7,w:1.6,d:1.15},{x:3.7,z:2.7,w:1.6,d:1.15}],
+ decks:[{x:-8.3,z:-1.5,w:3.2,d:3.6},{x:8.3,z:-1.5,w:3.2,d:3.6}],
+ height:1.05,rampEnd:4.55
+};
+BrawlSim.BOSS_ARENA=arena;
+const segmentCover=(a,b)=>{
+ let closest=null;
+ for(const box of arena.cover){
+  let lo=0,hi=1;
+  for(const [p,v,min,max] of [[a.x,b.x-a.x,box.x-box.w/2,box.x+box.w/2],[a.z,b.z-a.z,box.z-box.d/2,box.z+box.d/2]]){
+   if(Math.abs(v)<1e-8){if(p<min||p>max){lo=2;break;}continue;}
+   let t1=(min-p)/v,t2=(max-p)/v;if(t1>t2)[t1,t2]=[t2,t1];
+   lo=Math.max(lo,t1);hi=Math.min(hi,t2);
+  }
+  if(lo<=hi&&lo>.025&&lo<.98&&(!closest||lo<closest.t))closest={t:lo,x:a.x+(b.x-a.x)*lo,z:a.z+(b.z-a.z)*lo};
+ }
+ return closest;
+};
+const floorHeight=(x,z)=>{
+ for(const deck of arena.decks){
+  if(Math.abs(x-deck.x)>deck.w/2)continue;
+  if(z>=deck.z-deck.d/2&&z<=deck.z+deck.d/2)return arena.height;
+  let front=deck.z+deck.d/2;
+  if(z>front&&z<arena.rampEnd)return arena.height*(arena.rampEnd-z)/(arena.rampEnd-front);
+ }
+ return 0;
+};
+const pushOut=(body,margin)=>{
+ for(const c of arena.cover){let dx=body.x-c.x,dz=body.z-c.z,px=c.w/2+margin-Math.abs(dx),pz=c.d/2+margin-Math.abs(dz);
+  if(px>0&&pz>0){if(px<pz)body.x+=Math.sign(dx||1)*px;else body.z+=Math.sign(dz||1)*pz;}
+ }
+};
 
 Sim.prototype.beginBoss=function(roundWinner){
  this.roundWinner=roundWinner;this.bossOutcome=null;this.cloud.active=false;this.cloud.fade=0;
@@ -12,7 +47,7 @@ Sim.prototype.beginBoss=function(roundWinner){
   tier:0,hp:health[0],maxHp:health[0],attack:'idle',attackAge:0,
   cooldown:3.0,shots:0,targetIds:[],targetPoints:[],targetCursor:0,attackSerial:0,
   chaseTargetId:0,chaseAge:0,chaseTime:0,battleTime:0,stride:0,moving:0,
-  pursuitClock:0,aimHold:0,
+  pursuitClock:0,aimHold:0,avoidSide:1,
   clawOpen:.2,grabbed:null};
  for(let item of this.items)item.broken=true;
  for(let f of this.fighters){
@@ -48,9 +83,10 @@ Sim.prototype.bossAction=function(id,type,move){
 
 Sim.prototype.bossFire=function(f,heavy=false){
  let b=this.boss;if(!b||b.phase!=='battle'||f.ko)return;
- let damage=heavy?31:11,applied=Math.min(b.hp,damage);
+ let block=segmentCover(f,b),damage=heavy?31:f.id===this.selected?11:4,applied=block?0:Math.min(b.hp,damage);
  f.bossShots++;f.bossDamage+=applied;
- this.emit('laserShot',{id:f.id,x:f.x,z:f.z,toX:b.x,toZ:b.z,heavy,damage});
+ this.emit('laserShot',{id:f.id,x:f.x,z:f.z,toX:block?.x??b.x,toZ:block?.z??b.z,heavy,damage:applied,blocked:!!block});
+ if(block)return;
  b.hp=Math.max(0,b.hp-damage);
  if(b.hp<=0){
   b.phase=b.tier<3?'resurrect':'dead';b.age=0;b.attack='idle';b.grabbed=null;
@@ -75,13 +111,14 @@ Sim.prototype.bossBeam=function(shot){
  if(id===undefined||!point)return;
  let start={x:b.x+Math.cos(b.yaw)-Math.sin(b.yaw)*3.6,
   z:b.z-Math.sin(b.yaw)-Math.cos(b.yaw)*3.6},end=point;
- this.emit('bossLaser',{id,x:start.x,z:start.z,toX:end.x,toZ:end.z,tier:b.tier});
+ let block=segmentCover(start,end);
+ this.emit('bossLaser',{id,x:start.x,z:start.z,toX:block?.x??end.x,toZ:block?.z??end.z,tier:b.tier,blocked:!!block});
  let vx=end.x-start.x,vz=end.z-start.z,den=vx*vx+vz*vz||1;
  for(let f of this.fighters){
   if(f.ko)continue;
   let t=cap(((f.x-start.x)*vx+(f.z-start.z)*vz)/den,0,1);
   let miss=Math.hypot(f.x-(start.x+vx*t),f.z-(start.z+vz*t));
-  if(miss<1.05)this.bossHitPlayer(f,22+b.tier*5,'cannon');
+  if(miss<1.05&&(!block||t<block.t))this.bossHitPlayer(f,22+b.tier*5,'cannon');
  }
 };
 
@@ -129,19 +166,36 @@ Sim.prototype.bossStep=function(dt){
    let speed=b.aimHold>0||b.attack==='beam'?0:b.attack==='claw'?5.1:b.attack==='charge'?1.9:3.45+b.tier*.25;
    let gap=b.attack==='claw'?1.9:2.2;
    let step=Math.min(Math.max(0,r-gap),speed*dt);
+   let oldX=b.x,oldZ=b.z;
    b.x=cap(b.x+dx/r*step,-9.2,9.2);
    b.z=cap(b.z+dz/r*step,-6.2,6.2);
-   b.moving=step>0.001?1:0;
-   if(b.moving){b.chaseTime+=dt;b.stride+=step*3.4;}
+   pushOut(b,1.05);
+   let actual=Math.hypot(b.x-oldX,b.z-oldZ);
+   if(step>.01&&actual<step*.45){
+    for(const side of[b.avoidSide,-b.avoidSide]){
+     let probe={x:cap(oldX-dz/r*step*side,-9.2,9.2),z:cap(oldZ+dx/r*step*side,-6.2,6.2)};
+     pushOut(probe,1.05);
+     let moved=Math.hypot(probe.x-oldX,probe.z-oldZ);
+     if(moved>actual+.005){b.x=probe.x;b.z=probe.z;actual=moved;b.avoidSide=side;break;}
+    }
+   }
+   b.moving=actual>.002?1:0;
+   if(b.moving){b.chaseTime+=dt;b.stride+=actual*3.4;}
   }else b.moving=0;
  }else b.moving=0;
  for(let f of this.fighters){
   f.inv=Math.max(0,f.inv-dt);f.weaponCooldown=Math.max(0,(f.weaponCooldown||0)-dt);
   f.laserAge=Math.max(0,(f.laserAge||0)-dt);f.age+=dt;
-  if(f.ko){f.y+=f.vy*dt;f.vy-=14*dt;if(f.y<0){f.y=0;f.vy=0;}continue;}
+  if(f.ko){f.y+=f.vy*dt;f.vy-=16*dt;if(f.y<0){f.y=0;f.vy=0;}continue;}
   if(f.state==='bossGrabbed'){
    f.x=b.x-Math.sin(b.yaw)*2.15;f.z=b.z-Math.cos(b.yaw)*2.15;
    f.y=1.2+Math.sin(Math.min(1,b.attackAge)*Math.PI)*.8;continue;
+  }
+  if(f.y>floorHeight(f.x,f.z)+.02||f.vy>0){
+   f.y+=f.vy*dt;f.vy-=18*dt;
+   let ground=floorHeight(f.x,f.z);
+   if(f.y<=ground){f.y=ground;f.vy=0;f.vx*=.35;f.vz*=.35;this.emit('bossThrowLand',{id:f.id,x:f.x,z:f.z});}
+   else{f.x=cap(f.x+f.vx*dt,-this.bounds.x,this.bounds.x);f.z=cap(f.z+f.vz*dt,-this.bounds.z,this.bounds.z);continue;}
   }
   if(f.state==='hit'&&f.age>=.36||f.state==='dodge'&&f.age>=.40)this.state(f,'idle');
   f.stamina=cap(f.stamina+21*dt,0,100);
@@ -149,7 +203,7 @@ Sim.prototype.bossStep=function(dt){
   if(f.id===this.selected)intent=this.input;
   else{
    let theta=f.id*1.55+this.time*.28;
-   let ideal={x:b.x+Math.sin(theta)*3.65,z:b.z+Math.cos(theta)*3.65};
+   let ideal={x:b.x+Math.sin(theta)*5.35,z:b.z+Math.cos(theta)*5.35};
    let dx=ideal.x-f.x,dz=ideal.z-f.z,m=Math.hypot(dx,dz)||1;
    intent={x:m>.5?dx/m:0,z:m>.5?dz/m:0};
    if(b.attack==='charge'&&b.targetIds.includes(f.id)&&f.lastBossDodge!==b.attackSerial){
@@ -159,6 +213,7 @@ Sim.prototype.bossStep=function(dt){
      this.bossAction(f.id,'dodge',intent);
     }
    }
+   if(b.attack==='slamWind'&&distance(f,b)<5.4){let dx=f.x-b.x,dz=f.z-b.z,m=Math.hypot(dx,dz)||1;intent={x:dx/m,z:dz/m};}
   }
   if(f.state==='dodge'){
    f.vx*=Math.exp(-2*dt);f.vz*=Math.exp(-2*dt);
@@ -167,14 +222,19 @@ Sim.prototype.bossStep=function(dt){
    f.vz+=(intent.z*4.2-f.vz)*k;
    f.state=Math.hypot(f.vx,f.vz)>.3?'walk':'idle';
   }
+  const oldX=f.x,oldZ=f.z,oldFloor=floorHeight(oldX,oldZ);
   f.x=cap(f.x+f.vx*dt,-this.bounds.x,this.bounds.x);
   f.z=cap(f.z+f.vz*dt,-this.bounds.z,this.bounds.z);
+  pushOut(f,.40);
+  let nextFloor=floorHeight(f.x,f.z);
+  if(nextFloor>oldFloor+.13){f.x=oldX;f.z=oldZ;f.vx=f.vz=0;nextFloor=oldFloor;}
   let awayX=f.x-b.x,awayZ=f.z-b.z,r=Math.hypot(awayX,awayZ)||1;
   if(r<2.55){f.x=b.x+awayX/r*2.55;f.z=b.z+awayZ/r*2.55;}
+  if(nextFloor<oldFloor-.13){f.y=oldFloor;f.vy=0;}else f.y=nextFloor;
   f.yaw=Math.atan2(b.x-f.x,b.z-f.z);f.speed=Math.hypot(f.vx,f.vz);
   f.walk+=f.speed*dt*2.6;
   if(f.id!==this.selected&&b.phase==='battle'&&f.weaponCooldown<=0){
-   f.weaponCooldown=.62+this.random()*.42;this.bossFire(f,false);
+   f.weaponCooldown=1.45+this.random()*.55;this.bossFire(f,false);
   }
  }
  if(b.phase==='resurrect')return;
@@ -187,7 +247,11 @@ Sim.prototype.bossStep=function(dt){
   if(b.cooldown<=0){
    let living=this.fighters.filter(f=>!f.ko);
    let near=living.slice().sort((a,c)=>distance(a,b)-distance(c,b))[0];
-   if(near&&distance(near,b)<4.15&&this.random()<.55){
+   let crowded=living.filter(f=>distance(f,b)<5.1).length;
+   if(crowded>=2&&this.random()<.62){
+    b.attack='slamWind';b.attackAge=0;b.attackSerial++;b.targetIds=[];
+    this.emit('bossSlamWind',{x:b.x,z:b.z});
+   }else if(near&&distance(near,b)<4.15&&this.random()<.55){
     b.attack='claw';b.attackAge=0;b.grabbed=null;b.targetIds=[near.id];
     b.attackSerial++;
     this.emit('bossClawWind',{id:near.id});
@@ -205,7 +269,17 @@ Sim.prototype.bossStep=function(dt){
   }
  }else{
   b.attackAge+=dt;
-  if(b.attack==='charge'){
+  if(b.attack==='slamWind'){
+   b.clawOpen=.95;
+   if(b.attackAge>=.88){
+    b.attack='slamImpact';b.attackAge=0;this.emit('bossSlam',{x:b.x,z:b.z,radius:5.1});
+    for(const f of this.fighters){if(f.ko||distance(f,b)>5.1||f.y>.75)continue;
+     if(this.bossHitPlayer(f,27+b.tier*3,'slam')){let dx=f.x-b.x,dz=f.z-b.z,m=Math.hypot(dx,dz)||1;f.vx=dx/m*5;f.vz=dz/m*5;}
+    }
+   }
+  }else if(b.attack==='slamImpact'){
+   if(b.attackAge>=.62){b.attack='idle';b.cooldown=2.35;}
+  }else if(b.attack==='charge'){
    b.clawOpen=.15;
    if(b.attackAge>=.95){b.attack='beam';b.attackAge=0;}
   }else if(b.attack==='beam'){
@@ -224,8 +298,8 @@ Sim.prototype.bossStep=function(dt){
    }
    if(b.attackAge>=1.22){
     if(b.grabbed>=0){let target=this.fighters[b.grabbed];
-     target.grabbedBy=null;target.y=2.4;
-     target.vx=-Math.sin(b.yaw)*9;target.vz=-Math.cos(b.yaw)*9;target.vy=5;
+     target.grabbedBy=null;target.y=1.65;
+     target.vx=-Math.sin(b.yaw)*5.5;target.vz=-Math.cos(b.yaw)*5.5;target.vy=1.5;
      target.inv=0;this.bossHitPlayer(target,34+b.tier*5,'claw');
      this.emit('bossThrow',{id:target.id});}
     b.attack='idle';b.cooldown=2.25;b.grabbed=null;

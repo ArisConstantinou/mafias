@@ -24,34 +24,35 @@ with sync_playwright() as pw:
         page.wait_for_function("window.brawl && brawl.state==='menu'", timeout=20000)
         page.evaluate("brawl.start({instant:true,ai:false,seed:7391,selected:0});brawl.testFrozen=true")
         scene(page)
-        assert page.locator('#actions [data-action]').count() == 3
+        assert page.locator('#actions [data-action]').count() == 5
         assert page.locator('#actions [data-action="heavy"]').count() == 0
         if mobile:
             assert page.locator('#actionGuide').is_visible()
-        assert not page.locator('[data-world-action="grab"]').is_visible()
+        assert page.locator('[data-action="grab"]').is_visible()
+        assert page.locator('[data-action="pick"]').is_visible()
         page.screenshot(path=str(OUT / f'normal-{label}.png'))
         page.evaluate("""() => {let s=brawl.sim,p=s.fighters[0],q=s.fighters[1];p.x=0;p.z=0;q.x=1.3;q.z=0;s.fighters[2].x=8;s.fighters[3].x=-8;s.dizzy(q,2.5);q.inv=0;}""")
         scene(page)
         assert page.locator('.dizzy-stars').nth(1).is_visible()
-        assert page.locator('[data-world-action="grab"]').is_visible()
+        assert not page.locator('[data-action="grab"]').evaluate('(e) => e.classList.contains("unavailable")')
         page.screenshot(path=str(OUT / f'dizzy-grab-{label}.png'))
-        page.locator('[data-world-action="grab"]').tap() if mobile else page.locator('[data-world-action="grab"]').click()
+        page.locator('[data-action="grab"]').tap() if mobile else page.locator('[data-action="grab"]').click()
         scene(page)
         assert page.evaluate('brawl.sim.fighters[0].grabTarget') == 1
         assert page.locator('[data-world-action="spin"]').is_visible()
-        assert page.locator('[data-world-action="grab"] b').inner_text() == 'SLAM'
+        assert page.locator('#grabLabel').inner_text() == 'SLAM'
         page.screenshot(path=str(OUT / f'spin-choice-{label}.png'))
         page.locator('[data-world-action="spin"]').tap() if mobile else page.locator('[data-world-action="spin"]').click()
         assert page.evaluate('brawl.sim.fighters[0].state') == 'spin'
         page.evaluate("""() => {let s=brawl.sim,p=s.fighters[0],q=s.fighters[1];s.state(p,'idle');p.held=null;q.x=7;q.z=0;let o=s.items[0];o.x=p.x+.5;o.z=p.z;o.y=0;o.held=null;o.flying=false;o.broken=false;o.slipUntil=0;}""")
         scene(page)
-        assert page.locator('[data-world-action="pick"]').is_visible()
+        assert page.locator('[data-action="pick"]').is_visible()
         page.screenshot(path=str(OUT / f'pick-over-prop-{label}.png'))
-        page.locator('[data-world-action="pick"]').tap() if mobile else page.locator('[data-world-action="pick"]').click()
+        page.locator('[data-action="pick"]').tap() if mobile else page.locator('[data-action="pick"]').click()
         assert page.evaluate('brawl.sim.fighters[0].held') is not None
         page.evaluate("brawl.sim.state(brawl.sim.fighters[0],'idle')")
         scene(page)
-        assert page.locator('[data-world-action="pick"] b').inner_text() == 'THROW'
+        assert page.locator('#pickLabel').inner_text() == 'THROW'
         page.evaluate("""() => {let s=brawl.sim,p=s.fighters[0],q=s.fighters[1];p.held=null;p.stamina=100;s.state(p,'idle');q.x=1.3;q.z=0;q.y=0;q.hp=100;q.stamina=100;q.dizzyUntil=0;q.demoIdle=true;q.pushCooldown=Infinity;s.state(q,'idle');for(let type of ['punch','kick','punch']){p.state=type;p.attackHit=true;q.inv=0;if(!s.hit(q,p,3,'head',0,false,'melee'))throw Error('combo setup failed');}p.state='idle';}""")
         scene(page)
         assert page.locator('#punchLabel').inner_text() == 'HEAVY PUNCH'
@@ -60,4 +61,4 @@ with sync_playwright() as pw:
         assert not errors, (label, errors)
         context.close()
     browser.close()
-print('PASS: 3 buttons, dizzy stars, contextual grab/spin/pick, combo upgrade at 4 viewports')
+print('PASS: 5 buttons, dizzy stars, grab/spin/pick, combo upgrade at 4 viewports')

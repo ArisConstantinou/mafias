@@ -64,6 +64,17 @@ assert.equal(victim.state, 'bossGrabbed', 'claw can grab a standing fighter');
 frames(claw, 43);
 assert(victim.hp < 100, 'claw throw causes damage');
 assert.equal(victim.grabbedBy, null);
+claw.boss.phase = 'resurrect';
+claw.boss.age = 0;
+frames(claw, 90);
+assert(victim.y < .01, 'a thrown survivor lands instead of hovering');
+
+// AI companions support the selected player without clearing the boss phases for them.
+const pressure = new BrawlSim.Sim({selected:0, ai:false, seed:7391});
+pressure.finish(0);
+frames(pressure, 60 * 30);
+assert(pressure.fighters.slice(1).reduce((sum, f) => sum + f.bossDamage, 0) < 400,
+  'allied laser damage must leave the player a meaningful part of the fight');
 
 const loss = new BrawlSim.Sim({selected:0, ai:false, seed:39});
 loss.beginBoss(0);frames(loss, 290);
@@ -84,14 +95,58 @@ assert(idle.boss.stride > 20, 'boss must actually travel around the arena');
 assert(idle.boss.chaseTime / idle.boss.battleTime > .6, 'boss pursues for most of combat');
 assert(idle.boss.chaseTime / idle.boss.battleTime < .95, 'boss has readable attack and aim pauses');
 
-// The player can finish all four stages by contributing sustained laser fire.
+// A player who moves around cover and dodges telegraphed strikes can finish.
 const active = new BrawlSim.Sim({selected:0, ai:false, seed:7391});
 active.finish(0);
 for (let i=0; i<60*120 && !active.finished; i++) {
-  if (active.boss.phase==='battle') active.action(0,'punch');
+  if (active.boss.phase==='battle'&&!active.fighters[0].ko) {
+    const p=active.fighters[0],b=active.boss,angle=active.time*.5;
+    const goal={x:b.x+Math.sin(angle)*6.5,z:b.z+Math.cos(angle)*6.5};
+    const dx=goal.x-p.x,dz=goal.z-p.z,m=Math.hypot(dx,dz)||1;
+    active.moveInput(dx/m,dz/m);
+    if (b.attack==='charge'&&b.attackAge>.6||b.attack==='slamWind'&&b.attackAge>.45)
+      active.action(0,'dodge',{x:dx/m,z:dz/m});
+    active.action(0,'punch');
+  }
   active.step(1/60);active.drainEvents();
 }
 assert.equal(active.bossOutcome, 'crew');
 assert(active.fighters[0].bossDamage > 500);
 
-console.log('Boss transition, crew revival, four stages, three animated rebuilds, standing claw grab, permanent KOs and both endings passed.');
+// Raised ground is accessible via its ramp; armor breaks fire both ways.
+const tactical = new BrawlSim.Sim({selected:0, ai:false, seed:17});
+tactical.beginBoss(0);frames(tactical,290);
+for(const ally of tactical.fighters.slice(1))ally.weaponCooldown=1000;
+const shooter=tactical.fighters[0];
+shooter.x=8.3;shooter.z=4.5;
+let topY=0;
+for(let i=0;i<115;i++){tactical.moveInput(0,-1);tactical.step(1/60);tactical.drainEvents();topY=Math.max(topY,shooter.y);}
+assert(topY>.95,'the ramp reaches walkable high ground');
+shooter.x=-5.8;shooter.z=-1.7;shooter.y=0;shooter.weaponCooldown=0;
+tactical.boss.x=-2;tactical.boss.z=-1.7;
+const armoredHp=tactical.boss.hp;
+tactical.action(0,'punch');
+assert.equal(tactical.boss.hp,armoredHp,'cover blocks player lasers');
+tactical.boss.x=0;tactical.boss.z=-1.7;tactical.boss.yaw=Math.PI/2;
+tactical.boss.targetIds=[0];tactical.boss.targetPoints=[{x:shooter.x,z:shooter.z}];
+shooter.inv=0;const shelteredHp=shooter.hp;
+tactical.bossBeam(0);
+assert.equal(shooter.hp,shelteredHp,'cover also blocks the boss cannon');
+tactical.boss.x=0;tactical.boss.z=0;
+shooter.x=0;shooter.z=4.5;
+const exposedHp=tactical.boss.hp;shooter.weaponCooldown=0;
+tactical.action(0,'punch');
+assert(tactical.boss.hp<exposedHp,'an exposed firing lane works');
+
+const quake=new BrawlSim.Sim({selected:0,ai:false,seed:23});
+quake.beginBoss(0);frames(quake,290);
+quake.boss.x=0;quake.boss.z=0;quake.boss.attack='slamWind';quake.boss.attackAge=.86;
+const floorTarget=quake.fighters[0],raisedTarget=quake.fighters[1];
+floorTarget.x=2.5;floorTarget.z=0;floorTarget.y=0;floorTarget.inv=0;
+raisedTarget.x=8.3;raisedTarget.z=-1.5;raisedTarget.y=1.05;raisedTarget.inv=0;
+const quakeEvents=frames(quake,2);
+assert(quakeEvents.some(e=>e.type==='bossSlam'),'ground smash has a real impact event');
+assert(floorTarget.hp<100,'nearby ground-level players take shockwave damage');
+assert.equal(raisedTarget.hp,100,'the raised deck protects from the shockwave');
+
+console.log('Boss revival, four stages, landing physics, ally balance, cover, high ground, ground smash, pursuit and both endings passed.');

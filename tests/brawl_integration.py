@@ -73,9 +73,9 @@ with sync_playwright() as pw:
 
  start();target(1.1)
  page.evaluate("() => {let q=brawl.sim.fighters[1];brawl.sim.dizzy(q,2.2);q.inv=0;brawl.scene.render(brawl.sim,0,'playing');brawl.worldHUD(0);}")
- page.click('[data-world-action="grab"]')
+ page.click('[data-action="grab"]')
  assert page.evaluate('brawl.sim.fighters[0].grabTarget')==1
- page.click('[data-world-action="grab"]')
+ page.click('[data-action="grab"]')
  assert page.evaluate('brawl.sim.fighters[1].hp')<100
  check('grab_and_slam',{'targetHp':page.evaluate('brawl.sim.fighters[1].hp')})
 
@@ -87,11 +87,11 @@ with sync_playwright() as pw:
  start()
  page.evaluate("() => {let s=brawl.sim,p=s.fighters[0],o=s.items[0];o.x=p.x+.5;o.z=p.z;o.held=null;o.flying=false;o.broken=false;o.slipUntil=0;}")
  page.evaluate("() => {brawl.scene.render(brawl.sim,0,'playing');brawl.worldHUD(0);}")
- page.click('[data-world-action="pick"]')
+ page.click('[data-action="pick"]')
  assert page.evaluate('brawl.sim.fighters[0].held') is not None
  page.evaluate('advanceTime(400)')
  page.evaluate('brawl.worldHUD(0)')
- page.click('[data-world-action="pick"]')
+ page.click('[data-action="pick"]')
  page.evaluate('advanceTime(250)')
  assert page.evaluate('brawl.sim.fighters[0].throws')==1
  check('pick_and_throw',{'throws':1})

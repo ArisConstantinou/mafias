@@ -73,7 +73,68 @@ class BrawlScene{
   for(let [x,z]of[[-11,-8],[10,-10],[-18,8],[5,-24]]){b.rod([x,0,z],[x+.25,7.3,z],.16,'#8b7655',.10);for(let j=0;j<9;j++){let a=j/9*Math.PI*2,p=[x+.25,7.3,z],q=[x+Math.sin(a)*2.4,6.7,z+Math.cos(a)*2.4];b.rod(p,q,.045,'#6e7951',.006);let r=[x+Math.sin(a+.24)*1.35,7.10,z+Math.cos(a+.24)*1.35];b.tri(p,q,r,j%2?'#667f57':'#8b995f',[0,1,0]);}}
   for(let j=0;j<19;j++){let x=-12+j*1.32,y=6.7-Math.sin(j/18*Math.PI)*1.2;b.rod([x,y,-7.7],[x+1.32,6.7-Math.sin((j+1)/18*Math.PI)*1.2,-7.7],.009,'#566459');b.tri([x,y,-7.7],[x+.65,y-.14,-7.7],[x+.33,y-.82,-7.7],['#c66f51','#d4bb65','#548884'][j%3],[0,0,1]);}
   for(let k=0;k<65;k++){let x=this.random()*24-12,z=this.random()*18-9;if(Math.abs(x)<7&&Math.abs(z)<6)continue;b.box([x,.04,z],[.08+this.random()*.23,.045,.11+this.random()*.17],k%2?'#be8a63':'#aaac9c',[0,this.random()*6,0]);}
-  M.world=R.mesh(b);this.buildFighters();this.buildProps();this.buildLaserGun();
+  M.world=R.mesh(b);this.buildBossArena();this.buildFighters();this.buildProps();this.buildLaserGun();
+ }
+ buildBossArena(){
+  let a=BrawlSim.BOSS_ARENA,b=new MeshBuilder();
+  // The landing converts the courtyard into a reinforced transformer test pad.
+  b.box([0,.018,-.15],[22.8,.035,14.7],'#33454c');
+  b.box([0,.04,-.15],[20.9,.015,12.8],'#40535a');
+  for(let x=-10;x<=10;x+=2.1){b.box([x,.054,-6.58],[1.12,.013,.16],'#dba948');b.box([x,.054,6.24],[1.12,.013,.16],'#dba948');}
+  for(let z=-5.7;z<=5.8;z+=1.5){b.box([-10.5,.054,z],[.14,.013,.76],'#dba948');b.box([10.5,.054,z],[.14,.013,.76],'#dba948');}
+  for(let x=-9;x<=9;x+=3)for(let z=-5.4;z<=5.4;z+=2.7){
+   b.box([x,.056,z],[.10,.012,.56],'#526870');b.box([x+.4,.056,z],[.10,.012,.56],'#526870');
+  }
+  // Two real raised decks with tapered access ramps, visible support structure,
+  // edge rails, grating, warning bands and lighting. Gameplay uses these heights.
+  for(const deck of a.decks){let x=deck.x,z=deck.z,front=z+deck.d/2,run=a.rampEnd-front;
+   b.box([x,a.height*.48,z],[deck.w,.22,deck.d],'#30434d');
+   b.box([x,a.height+.015,z],[deck.w,.08,deck.d],'#6b7772');
+   for(let j=-1;j<=1;j++)for(let zz of[z-1.25,z+1.25]){
+    let xx=x+j*1.15;b.box([xx,.48,zz],[.14,.94,.16],'#263941');b.box([xx,.13,zz],[.32,.10,.36],'#899385');
+   }
+   for(let zz=z-deck.d/2+.23;zz<front;zz+=.33)b.box([x,a.height+.064,zz],[deck.w-.18,.018,.045],'#94a19b');
+   for(let side of[-1,1]){let xx=x+side*(deck.w/2-.07);
+    for(let zz of[z-1.5,z-.5,z+.5])b.rod([xx,a.height+.06,zz],[xx,a.height+1.06,zz],.045,'#334b51');
+    b.rod([xx,a.height+1.05,z-1.5],[xx,a.height+1.05,z+.6],.055,'#b8c5b5');
+   }
+   let slope=Math.atan(a.height/run);
+   b.box([x,a.height/2,front+run/2],[deck.w-.25,.15,run+.16],'#515f5e',[slope,0,0]);
+   for(let zz=front+.36;zz<a.rampEnd;zz+=.38){let yy=a.height*(a.rampEnd-zz)/run+.11;b.box([x,yy,zz],[deck.w-.30,.025,.055],'#a8b0a4',[slope,0,0]);}
+   for(let side of[-1,1]){let xx=x+side*(deck.w/2-.05);
+    b.rod([xx,a.height+1.05,front],[xx,.18,a.rampEnd],.035,'#d3b864');
+    for(let zz of[front+.5,front+1.55,front+2.55]){let yy=a.height*(a.rampEnd-zz)/run;b.rod([xx,yy,zz],[xx,yy+.62,zz],.03,'#536c71');}
+   }
+   for(let side of[-1,1]){let xx=x+side*(deck.w/2-.33);b.box([xx,a.height+.075,z-deck.d/2+.1],[.18,.035,.5],'#f5c661');}
+  }
+  // Each cover module is an assembled armored electrical barrier. Its exact
+  // footprint blocks movement and both sides' cannon fire in the simulation.
+  for(const c of a.cover){let x=c.x,z=c.z,w=c.w,d=c.d;
+   b.box([x,.22,z],[w+.32,.26,d+.3],'#242f36');
+   b.box([x,1.13,z],[w,1.85,d],'#384d56');
+   b.box([x,2.09,z],[w+.20,.12,d+.20],'#172d36');
+   for(let side of[-1,1]){
+    b.box([x+side*(w/2+.07),1.12,z],[.12,1.75,d+.12],'#9b9d87');
+    b.box([x+side*(w/2-.24),1.15,z],[.055,1.62,d-.22],'#607b82');
+    b.box([x+side*(w/2-.05),.10,z-d/2+.22],[.40,.16,.45],'#778784');
+    b.box([x+side*(w/2-.05),.10,z+d/2-.22],[.40,.16,.45],'#778784');
+   }
+   for(let zz=z-d/2+.28;zz<z+d/2;zz+=.42){
+    b.box([x,1.12,zz],[w-.20,1.40,.065],'#465c63');
+    b.box([x,1.72,zz],[w-.20,.05,.07],'#8ca6a8');
+   }
+   for(let xx of[x-w/2+.18,x+w/2-.18])for(let zz of[z-d/2+.18,z+d/2-.18]){
+    b.add('cylinder',[xx,2.16,zz],[.045,.035,.045],[0,0,0],'#d4b562');
+   }
+   for(let zz of[z-d/2+.16,z+d/2-.16])b.box([x,1.97,zz],[w-.12,.11,.12],'#e6b84a');
+  }
+  for(let side of[-1,1])for(let z of[-5.6,5.65]){
+   let x=side*10.2;b.box([x,.18,z],[.88,.35,.65],'#273941');
+   b.rod([x,.35,z],[x,2.75,z],.08,'#667a79');
+   b.box([x,2.77,z],[.68,.30,.48],'#d5d0a7');
+   b.box([x,2.77,z+side*.25],[.46,.17,.06],'#f8dfa1');
+  }
+  this.mesh.bossArena=this.R.mesh(b);
  }
  makeDust(){return this.tex(256,256,c=>{c.clearRect(0,0,256,256);let r=randSeed(36);for(let i=0;i<30;i++){let a=r()*Math.PI*2,dd=r()*67,x=128+Math.cos(a)*dd,y=128+Math.sin(a)*dd,rr=36+r()*27;let g=c.createRadialGradient(x-rr*.25,y-rr*.3,rr*.15,x,y,rr);g.addColorStop(0,'rgba(255,250,229,.9)');g.addColorStop(.60,'rgba(240,231,209,.83)');g.addColorStop(.87,'rgba(202,196,182,.35)');g.addColorStop(1,'rgba(218,213,197,0)');c.fillStyle=g;c.fillRect(x-rr,y-rr,rr*2,rr*2);}c.globalCompositeOperation='destination-in';let mask=c.createRadialGradient(128,128,88,128,128,124);mask.addColorStop(0,'rgba(255,255,255,1)');mask.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=mask;c.fillRect(0,0,256,256);c.globalCompositeOperation='source-over';});}
  makeImpact(){return this.tex(128,128,c=>{c.translate(64,64);c.fillStyle='#fbd455';c.strokeStyle='#273c42';c.lineWidth=4;c.beginPath();for(let i=0;i<20;i++){let a=i/20*Math.PI*2,r=i%2?24:59;c.lineTo(Math.cos(a)*r,Math.sin(a)*r);}c.closePath();c.fill();c.stroke();});}
@@ -178,9 +239,11 @@ class BrawlScene{
   let attackAge=boss.attackAge||0,charge=boss.attack==='charge'?smooth(0,.95,attackAge):0;
   let recoil=boss.attack==='beam'?Math.sin(Math.min(1,attackAge/1.15)*Math.PI*3)*.10:0;
   let claw=boss.attack==='claw'?Math.sin(smooth(0,1.22,attackAge)*Math.PI)*.85:0;
+  let slamWind=boss.attack==='slamWind'?smooth(0,.88,attackAge):0;
+  let slamHit=boss.attack==='slamImpact'?1-smooth(0,.62,attackAge):0;
   let yaw=boss.yaw??Math.PI,scale=boss.scale||.98,gait=boss.moving?1:0;
   let root=M4.trs([boss.x||0,(boss.y||0)+drop*8+hover+rise+Math.abs(Math.sin(boss.stride||0))*.045*gait,boss.z||0],
-   [collapse*.27+recoil*.45,yaw,collapse*.66+(laugh?Math.sin(t*11)*.12:0)],[scale,scale,scale]);
+   [collapse*.27+recoil*.45+slamWind*.11-slamHit*.16,yaw,collapse*.66+(laugh?Math.sin(t*11)*.12:0)],[scale,scale,scale]);
   let pose={};
   for(let side of ['LEFT','RIGHT']){
    let sign=side==='LEFT'?-1:1;
@@ -191,13 +254,13 @@ class BrawlScene{
     pose[`SCARAT_${side}_${station}_KNEE`]=[(fore?-1:1)*(brace*.42+drop*.48+collapse*.28)+lift*.39,0,0];
     pose[`SCARAT_${side}_${station}_ANKLE`]=[-(fore?-1:1)*(brace*.12+drop*.20)-lift*.16,0,0];
    }
-   pose[`SCARAT_${side}_CLAW_SHOULDER`]=[-.08-brace*.22-drop*.50-collapse*.55+(side==='LEFT'?-claw*.8:charge*.28-recoil*.7)+(laugh?Math.sin(t*11+sign)*.3:0),0,sign*(.08+(side==='LEFT'?claw*.16:0))];
-   pose[`SCARAT_${side}_CLAW_WRIST`]=[.07+brace*.14+collapse*.4+(side==='LEFT'?claw*.55:charge*.12+recoil*.9),0,0];
+    pose[`SCARAT_${side}_CLAW_SHOULDER`]=[-.08-brace*.22-drop*.50-collapse*.55-slamWind*.62+slamHit*.95+(side==='LEFT'?-claw*.8:charge*.28-recoil*.7)+(laugh?Math.sin(t*11+sign)*.3:0),0,sign*(.08+(side==='LEFT'?claw*.16:0))];
+    pose[`SCARAT_${side}_CLAW_WRIST`]=[.07+brace*.14+collapse*.4-slamWind*.30+slamHit*.55+(side==='LEFT'?claw*.55:charge*.12+recoil*.9),0,0];
   }
   let jawOpen=boss.clawOpen??(.25+.07*Math.sin(this.time*2.3));
   pose.SCARAT_LEFT_CLAW_INNER_JAW=[0,jawOpen,0];
   pose.SCARAT_LEFT_CLAW_OUTER_JAW=[0,-jawOpen,0];
-  pose.SCARAT_PRESSURE_SPINE=[brace*.08,0,0];
+  pose.SCARAT_PRESSURE_SPINE=[brace*.08+slamWind*.16-slamHit*.25,0,0];
   pose.SCARAT_SENSOR_BROW=[collapse*.23+(boss.attack==='charge'?-.12:0),0,claw*.06];
   let matrices={};
   const matrix=name=>{
@@ -213,7 +276,7 @@ class BrawlScene{
   // SCARAT sensor joint so every attack, fall and resurrection moves it with
   // the machine, while the camera-facing cutout stays readable in gameplay.
   let faceCenter=M4.point(matrix('SCARAT_SENSOR_BROW'),[0,3.05,-2.18]);
-  R.draw(this.mesh.plane,R.billboard(faceCenter,[2.75,2.75,1]),
+  R.draw(this.mesh.plane,R.billboard(faceCenter,[2.05,2.05,1]),
    {texture:this.bossFace,unlit:true,blend:true,depthWrite:false,
     tint:defeated?[.72,.76,.8]:[1,1,1]});
   this.bossMuzzle=M4.point(matrix('SCARAT_RIGHT_CLAW_WRIST'),[1,1.18,-3.81]);
@@ -235,12 +298,21 @@ class BrawlScene{
     this.drawBeam(p,[p[0]+Math.sin(a*2)*.45,p[1]+.8,p[2]+Math.cos(a*2)*.45],.025,'#a8f3ff',(1-q)*.75);
    }
   }
+  if(boss.attack==='slamWind'){
+   let pulse=.45+.25*Math.sin(this.time*15);
+   for(let radius of[4.75,5.10])R.draw(this.mesh.halo,M4.trs([boss.x,.09,boss.z],[Math.PI/2,0,0],[radius,radius,1]),{tint:rgb('#ffb968'),unlit:true,blend:true,alpha:pulse,depthWrite:false});
+  }
+  if(boss.attack==='slamImpact'){
+   let q=smooth(0,.62,attackAge),radius=.7+q*5.6;
+   R.draw(this.mesh.halo,M4.trs([boss.x,.11,boss.z],[Math.PI/2,0,0],[radius,radius,1]),{tint:rgb('#ffe19e'),unlit:true,blend:true,alpha:(1-q)*.9,depthWrite:false});
+  }
  }
  onEvent(e,sim){if(e.type==='hit'){this.shake=Math.max(this.shake,e.heavy?.12:.045);for(let j=0;j<(this.quality==='low'?5:10);j++)this.effects.push({kind:'chip',x:e.x,y:1.4,z:e.z,vx:(this.random()-.5)*5,vy:2+this.random()*3,vz:(this.random()-.5)*5,life:.40+this.random()*.3,max:.7,color:BRAWL_COLORS[e.id],size:.035+this.random()*.04});if(e.cloud){let angle=this.random()*Math.PI*2;this.pops.push({id:e.id,angle,life:.88,max:.88,rotate:(this.random()-.5)*.6});}this.effects.push({kind:'impact',x:e.x,y:1.8,z:e.z,life:.15,max:.15});}
    if(e.type==='autoPush'){this.shake=Math.max(this.shake,e.strong?.10:.055);this.effects.push({kind:'impact',x:e.x,y:1.35,z:e.z,life:.2,max:.2});}
   if(e.type==='bossLand'){this.shake=Math.max(this.shake,.40);this.effects.push({kind:'impact',x:e.x,y:.8,z:e.z,life:.45,max:.45});}
+  if(e.type==='bossSlam'){this.shake=Math.max(this.shake,.36);this.effects.push({kind:'impact',x:e.x,y:.6,z:e.z,life:.36,max:.36});for(let i=0;i<14;i++)this.effects.push({kind:'chip',x:e.x,y:.2,z:e.z,vx:Math.sin(i*6.28/14)*6,vy:2+this.random()*3,vz:Math.cos(i*6.28/14)*6,life:.65,max:.65,color:'#e9b66c',size:.055});}
   if(e.type==='bossCollapse'||e.type==='bossFinalFall'){this.shake=Math.max(this.shake,.28);for(let i=0;i<18;i++)this.effects.push({kind:'chip',x:sim.boss.x,y:1.7,z:sim.boss.z,vx:(this.random()-.5)*7,vy:1+this.random()*6,vz:(this.random()-.5)*7,life:.6+this.random()*.5,max:1,color:i%2?'#e2b963':'#76eaff',size:.035+this.random()*.04});}
-  if(e.type==='laserShot'){let f=sim.fighters[e.id],muzzle=M4.point(M4.trs([f.x,f.y,f.z],[0,f.yaw,0]),[.53,1.28,1.65]);this.effects.push({kind:'beam',a:muzzle,b:[e.toX,2.0,e.toZ+1.1],color:e.heavy?'#d4faff':'#6feaff',width:e.heavy?.085:.045,life:.22,max:.22});}
+  if(e.type==='laserShot'){let f=sim.fighters[e.id],muzzle=M4.point(M4.trs([f.x,f.y,f.z],[0,f.yaw,0]),[.53,1.28,1.65]);this.effects.push({kind:'beam',a:muzzle,b:[e.toX,e.blocked?1.45:2.0,e.toZ+(e.blocked?0:1.1)],color:e.heavy?'#d4faff':'#6feaff',width:e.heavy?.085:.045,life:.22,max:.22});if(e.blocked)this.effects.push({kind:'impact',x:e.toX,y:1.45,z:e.toZ,life:.15,max:.15});}
   if(e.type==='bossLaser')this.effects.push({kind:'beam',a:this.bossMuzzle||[e.x,1.7,e.z+1.8],b:[e.toX,1.35,e.toZ],color:'#ff9d43',width:.13,life:.31,max:.31});
   if(e.type==='ko'){let f=sim.fighters[e.id];if(sim.cloud.active)this.pops.push({id:e.id,angle:this.random()*Math.PI*2,life:1.15,max:1.15,rotate:.50});}
   if(e.type==='break')for(let i=0;i<15;i++)this.effects.push({kind:'chip',x:e.x,y:.7,z:e.z,vx:(this.random()-.5)*5,vy:2+this.random()*4,vz:(this.random()-.5)*5,life:1,max:1,color:'#bd9260',size:.08});
@@ -259,7 +331,7 @@ class BrawlScene{
  }
   render(sim,dt,state='playing'){this.renderState=state;this.updateVisual(dt);let R=this.R,M=this.mesh,T=this.texture,player=sim.fighters[sim.selected],portrait=R.w/R.h<.9;let focus=sim.boss?[(sim.boss.x+player.x)*.5,(sim.boss.z+player.z)*.5]:sim.cloud.active&&player.cloud?[sim.cloud.x,sim.cloud.z]:[player.x,player.z];if(state==='menu')focus=[0,0];let sidePanel=state==='tutorial'&&!portrait;let tx=sidePanel?3.6:sim.boss?focus[0]:focus[0]*.46,tz=sim.boss?focus[1]:focus[1]*.36;let k=this.camera?1-Math.exp(-dt*4):1;this.center[0]+= (tx-this.center[0])*k;this.center[1]+=(tz-this.center[1])*k;
    let base=portrait?[0,14.8,17.8]:sidePanel?[0,8.2,10.8]:[0,10.5,14.5];if(sim.boss){let separation=Math.hypot(sim.boss.x-player.x,sim.boss.z-player.z),zoom=Math.min(1.3,1+Math.max(0,separation-(portrait?6:8))*.045);base=base.map(v=>v*zoom);}let target=[this.center[0],.3,this.center[1]-.7],eye=[this.center[0]+base[0],base[1],this.center[1]+base[2]];if(!this.reduced&&state==='playing'){eye[0]+=Math.sin(this.time*74)*this.shake;eye[1]+=Math.cos(this.time*65)*this.shake;}
-  this.camera=eye;R.begin(eye,target,portrait?53:54);R.draw(M.ground,M4.id(),{texture:T.concrete});R.draw(M.world);for(let l of this.labels)R.draw(M.plane,M4.trs(l.p,l.rot,l.s),{texture:l.tex});R.draw(M.plane,M4.trs([0,.013,0],[-Math.PI/2,0,0],[9,9,1]),{texture:T.decal,blend:true,unlit:true,depthWrite:false});
+  this.camera=eye;R.begin(eye,target,portrait?53:54);R.draw(M.ground,M4.id(),{texture:T.concrete});R.draw(M.world);for(let l of this.labels)R.draw(M.plane,M4.trs(l.p,l.rot,l.s),{texture:l.tex});if(sim.boss)R.draw(M.bossArena);else R.draw(M.plane,M4.trs([0,.013,0],[-Math.PI/2,0,0],[9,9,1]),{texture:T.decal,blend:true,unlit:true,depthWrite:false});
   if(state!=='menu'){let col=BRAWL_COLORS[player.id];R.draw(M.ring,M4.trs([player.x,.027,player.z],[Math.PI/2,0,0],[.73,.73,.025]),{tint:rgb(col),unlit:true});let nearest=sim.nearestItem(player);if(nearest&&Math.hypot(nearest.x-player.x,nearest.z-player.z)<1.9&&player.held===null&&!player.ko)R.draw(M.ring,M4.trs([nearest.x,.055,nearest.z],[Math.PI/2,0,this.time],[.51,.51,.022]),{tint:rgb('#f5df88'),unlit:true});}
   // Props have their own physical positions and rotations, not emoji billboards.
   for(let o of sim.items){if(o.broken)continue;let scale=o.type==='mop'?.80:1;this.shadow(o.x,o.z,.8,.45);let rot=[o.flying?o.spin:0,o.flying?o.spin*.7:o.yaw,0];let p=[o.x,o.y,o.z];if(o.held!==null){let f=sim.fighters[o.held];p=[f.x+Math.sin(f.yaw)*.8,f.y+1.55,f.z+Math.cos(f.yaw)*.8];rot=[-.24,f.yaw,0];}R.draw(M.props[o.type],M4.trs(p,rot,[scale,scale,scale]));}

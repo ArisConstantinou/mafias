@@ -127,3 +127,20 @@ body.boss-mode.mobile-controls .actions{display:flex;grid-template-columns:none}
 body.boss-mode.mobile-controls .combat.punch,body.boss-mode.mobile-controls .combat.kick,body.boss-mode.mobile-controls .combat.dodge{grid-column:auto;grid-row:auto}
 @media(max-width:650px) and (min-height:501px){body.boss-mode.mobile-controls .combat{width:68px;height:68px}}
 @media(max-width:375px) and (min-height:501px){body.boss-mode.mobile-controls .combat{width:61px;height:61px}}
+/* Five fixed combat controls keep Grab and Pick Up within thumb reach.
+   The finale switches to its three meaningful laser controls. */
+body:not(.boss-mode) .combat.grab,body:not(.boss-mode) .combat.pick{display:flex}
+body:not(.boss-mode) .actions,body:not(.boss-mode).mobile-controls .actions{display:grid;grid-template-columns:repeat(3,66px);gap:7px}
+body:not(.boss-mode) .combat{width:66px;height:66px}
+body:not(.boss-mode) .combat.grab{grid-column:1;grid-row:1}
+body:not(.boss-mode) .combat.pick{grid-column:2;grid-row:1}
+body:not(.boss-mode) .combat.punch{grid-column:3;grid-row:1}
+body:not(.boss-mode) .combat.dodge{grid-column:1;grid-row:2}
+body:not(.boss-mode) .combat.kick{grid-column:3;grid-row:2}
+body:not(.boss-mode) .combat.unavailable{opacity:.58}
+body:not(.boss-mode) .combat.pick{background:#275248e8;border-color:#a7e9c0;color:#e2ffed}
+body:not(.boss-mode) .combat.grab{background:#4b4264e8;border-color:#d4c2fc;color:#f2e8ff}
+body.boss-mode .combat.grab,body.boss-mode .combat.pick{display:none!important}
+@media(max-width:650px) and (min-height:501px){body:not(.boss-mode) .actions,body:not(.boss-mode).mobile-controls .actions{grid-template-columns:repeat(3,61px);right:8px;bottom:calc(22px + var(--safe-b));gap:6px}body:not(.boss-mode) .combat{width:61px;height:61px}body:not(.boss-mode) .action-guide{bottom:calc(162px + var(--safe-b))}}
+@media(max-width:375px) and (min-height:501px){body:not(.boss-mode) .actions,body:not(.boss-mode).mobile-controls .actions{grid-template-columns:repeat(3,55px);gap:5px}body:not(.boss-mode) .combat{width:55px;height:55px}}
+@media(max-height:500px){body:not(.boss-mode) .actions,body:not(.boss-mode).mobile-controls .actions{grid-template-columns:repeat(3,48px);gap:4px;bottom:calc(10px + var(--safe-b))}body:not(.boss-mode) .combat{width:48px;height:48px}body:not(.boss-mode) .combat svg{width:19px;height:19px}body:not(.boss-mode) .combat b{font-size:7px}}

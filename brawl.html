@@ -128,6 +128,23 @@ body.boss-mode.mobile-controls .actions{display:flex;grid-template-columns:none}
 body.boss-mode.mobile-controls .combat.punch,body.boss-mode.mobile-controls .combat.kick,body.boss-mode.mobile-controls .combat.dodge{grid-column:auto;grid-row:auto}
 @media(max-width:650px) and (min-height:501px){body.boss-mode.mobile-controls .combat{width:68px;height:68px}}
 @media(max-width:375px) and (min-height:501px){body.boss-mode.mobile-controls .combat{width:61px;height:61px}}
+/* Five fixed combat controls keep Grab and Pick Up within thumb reach.
+   The finale switches to its three meaningful laser controls. */
+body:not(.boss-mode) .combat.grab,body:not(.boss-mode) .combat.pick{display:flex}
+body:not(.boss-mode) .actions,body:not(.boss-mode).mobile-controls .actions{display:grid;grid-template-columns:repeat(3,66px);gap:7px}
+body:not(.boss-mode) .combat{width:66px;height:66px}
+body:not(.boss-mode) .combat.grab{grid-column:1;grid-row:1}
+body:not(.boss-mode) .combat.pick{grid-column:2;grid-row:1}
+body:not(.boss-mode) .combat.punch{grid-column:3;grid-row:1}
+body:not(.boss-mode) .combat.dodge{grid-column:1;grid-row:2}
+body:not(.boss-mode) .combat.kick{grid-column:3;grid-row:2}
+body:not(.boss-mode) .combat.unavailable{opacity:.58}
+body:not(.boss-mode) .combat.pick{background:#275248e8;border-color:#a7e9c0;color:#e2ffed}
+body:not(.boss-mode) .combat.grab{background:#4b4264e8;border-color:#d4c2fc;color:#f2e8ff}
+body.boss-mode .combat.grab,body.boss-mode .combat.pick{display:none!important}
+@media(max-width:650px) and (min-height:501px){body:not(.boss-mode) .actions,body:not(.boss-mode).mobile-controls .actions{grid-template-columns:repeat(3,61px);right:8px;bottom:calc(22px + var(--safe-b));gap:6px}body:not(.boss-mode) .combat{width:61px;height:61px}body:not(.boss-mode) .action-guide{bottom:calc(162px + var(--safe-b))}}
+@media(max-width:375px) and (min-height:501px){body:not(.boss-mode) .actions,body:not(.boss-mode).mobile-controls .actions{grid-template-columns:repeat(3,55px);gap:5px}body:not(.boss-mode) .combat{width:55px;height:55px}}
+@media(max-height:500px){body:not(.boss-mode) .actions,body:not(.boss-mode).mobile-controls .actions{grid-template-columns:repeat(3,48px);gap:4px;bottom:calc(10px + var(--safe-b))}body:not(.boss-mode) .combat{width:48px;height:48px}body:not(.boss-mode) .combat svg{width:19px;height:19px}body:not(.boss-mode) .combat b{font-size:7px}}
 </style></head>
 <body>
 <svg aria-hidden="true" style="position:absolute;width:0;height:0;overflow:hidden" xmlns="http://www.w3.org/2000/svg"><defs>
@@ -159,6 +176,8 @@ body.boss-mode.mobile-controls .combat.punch,body.boss-mode.mobile-controls .com
   <button data-action="punch" class="combat punch" aria-label="Punch, J"><svg><use href="#i-punch"/></svg><b id="punchLabel">PUNCH</b><kbd>J</kbd><span class="cooldown"></span></button>
   <button data-action="kick" class="combat kick" aria-label="Kick, K"><svg><use href="#i-kick"/></svg><b id="kickLabel">KICK</b><kbd>K</kbd><span class="cooldown"></span></button>
   <button data-action="dodge" class="combat dodge" aria-label="Dodge, space"><svg><use href="#i-dodge"/></svg><b>DODGE</b><kbd>SPACE</kbd><span class="cooldown"></span></button>
+  <button data-action="grab" class="combat grab" aria-label="Grab or slam, L"><svg><use href="#i-grab"/></svg><b id="grabLabel">GRAB</b><kbd>L</kbd><span class="cooldown"></span></button>
+  <button data-action="pick" class="combat pick" aria-label="Pick up or throw, E"><svg><use href="#i-pick"/></svg><b id="pickLabel">PICK UP</b><kbd>E</kbd><span class="cooldown"></span></button>
  </div>
  <div id="spectator" class="spectator" hidden>YOU'RE OUT <span>The remaining fighters are still battling.</span><button id="quickRestart">NEW ROUND</button></div>
  <div id="perf" class="perf" hidden></div><div class="keyboardhint">WASD MOVE · J PUNCH · K KICK · SPACE DODGE · L GRAB / SLAM · Q SPIN · E PICK / THROW · STAND STILL TO BLOCK · ESC PAUSE</div>
@@ -440,6 +459,41 @@ const Sim=BrawlSim.Sim;
 const cap=(n,a,b)=>Math.max(a,Math.min(b,n));
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const health=[280,340,400,460];
+// Shared by collision, laser cover and the rendered boss-only arena.
+const arena={
+ cover:[{x:-4.4,z:-1.7,w:1.45,d:2.3},{x:4.4,z:-1.7,w:1.45,d:2.3},
+  {x:-3.7,z:2.7,w:1.6,d:1.15},{x:3.7,z:2.7,w:1.6,d:1.15}],
+ decks:[{x:-8.3,z:-1.5,w:3.2,d:3.6},{x:8.3,z:-1.5,w:3.2,d:3.6}],
+ height:1.05,rampEnd:4.55
+};
+BrawlSim.BOSS_ARENA=arena;
+const segmentCover=(a,b)=>{
+ let closest=null;
+ for(const box of arena.cover){
+  let lo=0,hi=1;
+  for(const [p,v,min,max] of [[a.x,b.x-a.x,box.x-box.w/2,box.x+box.w/2],[a.z,b.z-a.z,box.z-box.d/2,box.z+box.d/2]]){
+   if(Math.abs(v)<1e-8){if(p<min||p>max){lo=2;break;}continue;}
+   let t1=(min-p)/v,t2=(max-p)/v;if(t1>t2)[t1,t2]=[t2,t1];
+   lo=Math.max(lo,t1);hi=Math.min(hi,t2);
+  }
+  if(lo<=hi&&lo>.025&&lo<.98&&(!closest||lo<closest.t))closest={t:lo,x:a.x+(b.x-a.x)*lo,z:a.z+(b.z-a.z)*lo};
+ }
+ return closest;
+};
+const floorHeight=(x,z)=>{
+ for(const deck of arena.decks){
+  if(Math.abs(x-deck.x)>deck.w/2)continue;
+  if(z>=deck.z-deck.d/2&&z<=deck.z+deck.d/2)return arena.height;
+  let front=deck.z+deck.d/2;
+  if(z>front&&z<arena.rampEnd)return arena.height*(arena.rampEnd-z)/(arena.rampEnd-front);
+ }
+ return 0;
+};
+const pushOut=(body,margin)=>{
+ for(const c of arena.cover){let dx=body.x-c.x,dz=body.z-c.z,px=c.w/2+margin-Math.abs(dx),pz=c.d/2+margin-Math.abs(dz);
+  if(px>0&&pz>0){if(px<pz)body.x+=Math.sign(dx||1)*px;else body.z+=Math.sign(dz||1)*pz;}
+ }
+};
 
 Sim.prototype.beginBoss=function(roundWinner){
  this.roundWinner=roundWinner;this.bossOutcome=null;this.cloud.active=false;this.cloud.fade=0;
@@ -447,7 +501,7 @@ Sim.prototype.beginBoss=function(roundWinner){
   tier:0,hp:health[0],maxHp:health[0],attack:'idle',attackAge:0,
   cooldown:3.0,shots:0,targetIds:[],targetPoints:[],targetCursor:0,attackSerial:0,
   chaseTargetId:0,chaseAge:0,chaseTime:0,battleTime:0,stride:0,moving:0,
-  pursuitClock:0,aimHold:0,
+  pursuitClock:0,aimHold:0,avoidSide:1,
   clawOpen:.2,grabbed:null};
  for(let item of this.items)item.broken=true;
  for(let f of this.fighters){
@@ -483,9 +537,10 @@ Sim.prototype.bossAction=function(id,type,move){
 
 Sim.prototype.bossFire=function(f,heavy=false){
  let b=this.boss;if(!b||b.phase!=='battle'||f.ko)return;
- let damage=heavy?31:11,applied=Math.min(b.hp,damage);
+ let block=segmentCover(f,b),damage=heavy?31:f.id===this.selected?11:4,applied=block?0:Math.min(b.hp,damage);
  f.bossShots++;f.bossDamage+=applied;
- this.emit('laserShot',{id:f.id,x:f.x,z:f.z,toX:b.x,toZ:b.z,heavy,damage});
+ this.emit('laserShot',{id:f.id,x:f.x,z:f.z,toX:block?.x??b.x,toZ:block?.z??b.z,heavy,damage:applied,blocked:!!block});
+ if(block)return;
  b.hp=Math.max(0,b.hp-damage);
  if(b.hp<=0){
   b.phase=b.tier<3?'resurrect':'dead';b.age=0;b.attack='idle';b.grabbed=null;
@@ -510,13 +565,14 @@ Sim.prototype.bossBeam=function(shot){
  if(id===undefined||!point)return;
  let start={x:b.x+Math.cos(b.yaw)-Math.sin(b.yaw)*3.6,
   z:b.z-Math.sin(b.yaw)-Math.cos(b.yaw)*3.6},end=point;
- this.emit('bossLaser',{id,x:start.x,z:start.z,toX:end.x,toZ:end.z,tier:b.tier});
+ let block=segmentCover(start,end);
+ this.emit('bossLaser',{id,x:start.x,z:start.z,toX:block?.x??end.x,toZ:block?.z??end.z,tier:b.tier,blocked:!!block});
  let vx=end.x-start.x,vz=end.z-start.z,den=vx*vx+vz*vz||1;
  for(let f of this.fighters){
   if(f.ko)continue;
   let t=cap(((f.x-start.x)*vx+(f.z-start.z)*vz)/den,0,1);
   let miss=Math.hypot(f.x-(start.x+vx*t),f.z-(start.z+vz*t));
-  if(miss<1.05)this.bossHitPlayer(f,22+b.tier*5,'cannon');
+  if(miss<1.05&&(!block||t<block.t))this.bossHitPlayer(f,22+b.tier*5,'cannon');
  }
 };
 
@@ -564,19 +620,36 @@ Sim.prototype.bossStep=function(dt){
    let speed=b.aimHold>0||b.attack==='beam'?0:b.attack==='claw'?5.1:b.attack==='charge'?1.9:3.45+b.tier*.25;
    let gap=b.attack==='claw'?1.9:2.2;
    let step=Math.min(Math.max(0,r-gap),speed*dt);
+   let oldX=b.x,oldZ=b.z;
    b.x=cap(b.x+dx/r*step,-9.2,9.2);
    b.z=cap(b.z+dz/r*step,-6.2,6.2);
-   b.moving=step>0.001?1:0;
-   if(b.moving){b.chaseTime+=dt;b.stride+=step*3.4;}
+   pushOut(b,1.05);
+   let actual=Math.hypot(b.x-oldX,b.z-oldZ);
+   if(step>.01&&actual<step*.45){
+    for(const side of[b.avoidSide,-b.avoidSide]){
+     let probe={x:cap(oldX-dz/r*step*side,-9.2,9.2),z:cap(oldZ+dx/r*step*side,-6.2,6.2)};
+     pushOut(probe,1.05);
+     let moved=Math.hypot(probe.x-oldX,probe.z-oldZ);
+     if(moved>actual+.005){b.x=probe.x;b.z=probe.z;actual=moved;b.avoidSide=side;break;}
+    }
+   }
+   b.moving=actual>.002?1:0;
+   if(b.moving){b.chaseTime+=dt;b.stride+=actual*3.4;}
   }else b.moving=0;
  }else b.moving=0;
  for(let f of this.fighters){
   f.inv=Math.max(0,f.inv-dt);f.weaponCooldown=Math.max(0,(f.weaponCooldown||0)-dt);
   f.laserAge=Math.max(0,(f.laserAge||0)-dt);f.age+=dt;
-  if(f.ko){f.y+=f.vy*dt;f.vy-=14*dt;if(f.y<0){f.y=0;f.vy=0;}continue;}
+  if(f.ko){f.y+=f.vy*dt;f.vy-=16*dt;if(f.y<0){f.y=0;f.vy=0;}continue;}
   if(f.state==='bossGrabbed'){
    f.x=b.x-Math.sin(b.yaw)*2.15;f.z=b.z-Math.cos(b.yaw)*2.15;
    f.y=1.2+Math.sin(Math.min(1,b.attackAge)*Math.PI)*.8;continue;
+  }
+  if(f.y>floorHeight(f.x,f.z)+.02||f.vy>0){
+   f.y+=f.vy*dt;f.vy-=18*dt;
+   let ground=floorHeight(f.x,f.z);
+   if(f.y<=ground){f.y=ground;f.vy=0;f.vx*=.35;f.vz*=.35;this.emit('bossThrowLand',{id:f.id,x:f.x,z:f.z});}
+   else{f.x=cap(f.x+f.vx*dt,-this.bounds.x,this.bounds.x);f.z=cap(f.z+f.vz*dt,-this.bounds.z,this.bounds.z);continue;}
   }
   if(f.state==='hit'&&f.age>=.36||f.state==='dodge'&&f.age>=.40)this.state(f,'idle');
   f.stamina=cap(f.stamina+21*dt,0,100);
@@ -584,7 +657,7 @@ Sim.prototype.bossStep=function(dt){
   if(f.id===this.selected)intent=this.input;
   else{
    let theta=f.id*1.55+this.time*.28;
-   let ideal={x:b.x+Math.sin(theta)*3.65,z:b.z+Math.cos(theta)*3.65};
+   let ideal={x:b.x+Math.sin(theta)*5.35,z:b.z+Math.cos(theta)*5.35};
    let dx=ideal.x-f.x,dz=ideal.z-f.z,m=Math.hypot(dx,dz)||1;
    intent={x:m>.5?dx/m:0,z:m>.5?dz/m:0};
    if(b.attack==='charge'&&b.targetIds.includes(f.id)&&f.lastBossDodge!==b.attackSerial){
@@ -594,6 +667,7 @@ Sim.prototype.bossStep=function(dt){
      this.bossAction(f.id,'dodge',intent);
     }
    }
+   if(b.attack==='slamWind'&&distance(f,b)<5.4){let dx=f.x-b.x,dz=f.z-b.z,m=Math.hypot(dx,dz)||1;intent={x:dx/m,z:dz/m};}
   }
   if(f.state==='dodge'){
    f.vx*=Math.exp(-2*dt);f.vz*=Math.exp(-2*dt);
@@ -602,14 +676,19 @@ Sim.prototype.bossStep=function(dt){
    f.vz+=(intent.z*4.2-f.vz)*k;
    f.state=Math.hypot(f.vx,f.vz)>.3?'walk':'idle';
   }
+  const oldX=f.x,oldZ=f.z,oldFloor=floorHeight(oldX,oldZ);
   f.x=cap(f.x+f.vx*dt,-this.bounds.x,this.bounds.x);
   f.z=cap(f.z+f.vz*dt,-this.bounds.z,this.bounds.z);
+  pushOut(f,.40);
+  let nextFloor=floorHeight(f.x,f.z);
+  if(nextFloor>oldFloor+.13){f.x=oldX;f.z=oldZ;f.vx=f.vz=0;nextFloor=oldFloor;}
   let awayX=f.x-b.x,awayZ=f.z-b.z,r=Math.hypot(awayX,awayZ)||1;
   if(r<2.55){f.x=b.x+awayX/r*2.55;f.z=b.z+awayZ/r*2.55;}
+  if(nextFloor<oldFloor-.13){f.y=oldFloor;f.vy=0;}else f.y=nextFloor;
   f.yaw=Math.atan2(b.x-f.x,b.z-f.z);f.speed=Math.hypot(f.vx,f.vz);
   f.walk+=f.speed*dt*2.6;
   if(f.id!==this.selected&&b.phase==='battle'&&f.weaponCooldown<=0){
-   f.weaponCooldown=.62+this.random()*.42;this.bossFire(f,false);
+   f.weaponCooldown=1.45+this.random()*.55;this.bossFire(f,false);
   }
  }
  if(b.phase==='resurrect')return;
@@ -622,7 +701,11 @@ Sim.prototype.bossStep=function(dt){
   if(b.cooldown<=0){
    let living=this.fighters.filter(f=>!f.ko);
    let near=living.slice().sort((a,c)=>distance(a,b)-distance(c,b))[0];
-   if(near&&distance(near,b)<4.15&&this.random()<.55){
+   let crowded=living.filter(f=>distance(f,b)<5.1).length;
+   if(crowded>=2&&this.random()<.62){
+    b.attack='slamWind';b.attackAge=0;b.attackSerial++;b.targetIds=[];
+    this.emit('bossSlamWind',{x:b.x,z:b.z});
+   }else if(near&&distance(near,b)<4.15&&this.random()<.55){
     b.attack='claw';b.attackAge=0;b.grabbed=null;b.targetIds=[near.id];
     b.attackSerial++;
     this.emit('bossClawWind',{id:near.id});
@@ -640,7 +723,17 @@ Sim.prototype.bossStep=function(dt){
   }
  }else{
   b.attackAge+=dt;
-  if(b.attack==='charge'){
+  if(b.attack==='slamWind'){
+   b.clawOpen=.95;
+   if(b.attackAge>=.88){
+    b.attack='slamImpact';b.attackAge=0;this.emit('bossSlam',{x:b.x,z:b.z,radius:5.1});
+    for(const f of this.fighters){if(f.ko||distance(f,b)>5.1||f.y>.75)continue;
+     if(this.bossHitPlayer(f,27+b.tier*3,'slam')){let dx=f.x-b.x,dz=f.z-b.z,m=Math.hypot(dx,dz)||1;f.vx=dx/m*5;f.vz=dz/m*5;}
+    }
+   }
+  }else if(b.attack==='slamImpact'){
+   if(b.attackAge>=.62){b.attack='idle';b.cooldown=2.35;}
+  }else if(b.attack==='charge'){
    b.clawOpen=.15;
    if(b.attackAge>=.95){b.attack='beam';b.attackAge=0;}
   }else if(b.attack==='beam'){
@@ -659,8 +752,8 @@ Sim.prototype.bossStep=function(dt){
    }
    if(b.attackAge>=1.22){
     if(b.grabbed>=0){let target=this.fighters[b.grabbed];
-     target.grabbedBy=null;target.y=2.4;
-     target.vx=-Math.sin(b.yaw)*9;target.vz=-Math.cos(b.yaw)*9;target.vy=5;
+     target.grabbedBy=null;target.y=1.65;
+     target.vx=-Math.sin(b.yaw)*5.5;target.vz=-Math.cos(b.yaw)*5.5;target.vy=1.5;
      target.inv=0;this.bossHitPlayer(target,34+b.tier*5,'claw');
      this.emit('bossThrow',{id:target.id});}
     b.attack='idle';b.cooldown=2.25;b.grabbed=null;
@@ -744,7 +837,68 @@ class BrawlScene{
   for(let [x,z]of[[-11,-8],[10,-10],[-18,8],[5,-24]]){b.rod([x,0,z],[x+.25,7.3,z],.16,'#8b7655',.10);for(let j=0;j<9;j++){let a=j/9*Math.PI*2,p=[x+.25,7.3,z],q=[x+Math.sin(a)*2.4,6.7,z+Math.cos(a)*2.4];b.rod(p,q,.045,'#6e7951',.006);let r=[x+Math.sin(a+.24)*1.35,7.10,z+Math.cos(a+.24)*1.35];b.tri(p,q,r,j%2?'#667f57':'#8b995f',[0,1,0]);}}
   for(let j=0;j<19;j++){let x=-12+j*1.32,y=6.7-Math.sin(j/18*Math.PI)*1.2;b.rod([x,y,-7.7],[x+1.32,6.7-Math.sin((j+1)/18*Math.PI)*1.2,-7.7],.009,'#566459');b.tri([x,y,-7.7],[x+.65,y-.14,-7.7],[x+.33,y-.82,-7.7],['#c66f51','#d4bb65','#548884'][j%3],[0,0,1]);}
   for(let k=0;k<65;k++){let x=this.random()*24-12,z=this.random()*18-9;if(Math.abs(x)<7&&Math.abs(z)<6)continue;b.box([x,.04,z],[.08+this.random()*.23,.045,.11+this.random()*.17],k%2?'#be8a63':'#aaac9c',[0,this.random()*6,0]);}
-  M.world=R.mesh(b);this.buildFighters();this.buildProps();this.buildLaserGun();
+  M.world=R.mesh(b);this.buildBossArena();this.buildFighters();this.buildProps();this.buildLaserGun();
+ }
+ buildBossArena(){
+  let a=BrawlSim.BOSS_ARENA,b=new MeshBuilder();
+  // The landing converts the courtyard into a reinforced transformer test pad.
+  b.box([0,.018,-.15],[22.8,.035,14.7],'#33454c');
+  b.box([0,.04,-.15],[20.9,.015,12.8],'#40535a');
+  for(let x=-10;x<=10;x+=2.1){b.box([x,.054,-6.58],[1.12,.013,.16],'#dba948');b.box([x,.054,6.24],[1.12,.013,.16],'#dba948');}
+  for(let z=-5.7;z<=5.8;z+=1.5){b.box([-10.5,.054,z],[.14,.013,.76],'#dba948');b.box([10.5,.054,z],[.14,.013,.76],'#dba948');}
+  for(let x=-9;x<=9;x+=3)for(let z=-5.4;z<=5.4;z+=2.7){
+   b.box([x,.056,z],[.10,.012,.56],'#526870');b.box([x+.4,.056,z],[.10,.012,.56],'#526870');
+  }
+  // Two real raised decks with tapered access ramps, visible support structure,
+  // edge rails, grating, warning bands and lighting. Gameplay uses these heights.
+  for(const deck of a.decks){let x=deck.x,z=deck.z,front=z+deck.d/2,run=a.rampEnd-front;
+   b.box([x,a.height*.48,z],[deck.w,.22,deck.d],'#30434d');
+   b.box([x,a.height+.015,z],[deck.w,.08,deck.d],'#6b7772');
+   for(let j=-1;j<=1;j++)for(let zz of[z-1.25,z+1.25]){
+    let xx=x+j*1.15;b.box([xx,.48,zz],[.14,.94,.16],'#263941');b.box([xx,.13,zz],[.32,.10,.36],'#899385');
+   }
+   for(let zz=z-deck.d/2+.23;zz<front;zz+=.33)b.box([x,a.height+.064,zz],[deck.w-.18,.018,.045],'#94a19b');
+   for(let side of[-1,1]){let xx=x+side*(deck.w/2-.07);
+    for(let zz of[z-1.5,z-.5,z+.5])b.rod([xx,a.height+.06,zz],[xx,a.height+1.06,zz],.045,'#334b51');
+    b.rod([xx,a.height+1.05,z-1.5],[xx,a.height+1.05,z+.6],.055,'#b8c5b5');
+   }
+   let slope=Math.atan(a.height/run);
+   b.box([x,a.height/2,front+run/2],[deck.w-.25,.15,run+.16],'#515f5e',[slope,0,0]);
+   for(let zz=front+.36;zz<a.rampEnd;zz+=.38){let yy=a.height*(a.rampEnd-zz)/run+.11;b.box([x,yy,zz],[deck.w-.30,.025,.055],'#a8b0a4',[slope,0,0]);}
+   for(let side of[-1,1]){let xx=x+side*(deck.w/2-.05);
+    b.rod([xx,a.height+1.05,front],[xx,.18,a.rampEnd],.035,'#d3b864');
+    for(let zz of[front+.5,front+1.55,front+2.55]){let yy=a.height*(a.rampEnd-zz)/run;b.rod([xx,yy,zz],[xx,yy+.62,zz],.03,'#536c71');}
+   }
+   for(let side of[-1,1]){let xx=x+side*(deck.w/2-.33);b.box([xx,a.height+.075,z-deck.d/2+.1],[.18,.035,.5],'#f5c661');}
+  }
+  // Each cover module is an assembled armored electrical barrier. Its exact
+  // footprint blocks movement and both sides' cannon fire in the simulation.
+  for(const c of a.cover){let x=c.x,z=c.z,w=c.w,d=c.d;
+   b.box([x,.22,z],[w+.32,.26,d+.3],'#242f36');
+   b.box([x,1.13,z],[w,1.85,d],'#384d56');
+   b.box([x,2.09,z],[w+.20,.12,d+.20],'#172d36');
+   for(let side of[-1,1]){
+    b.box([x+side*(w/2+.07),1.12,z],[.12,1.75,d+.12],'#9b9d87');
+    b.box([x+side*(w/2-.24),1.15,z],[.055,1.62,d-.22],'#607b82');
+    b.box([x+side*(w/2-.05),.10,z-d/2+.22],[.40,.16,.45],'#778784');
+    b.box([x+side*(w/2-.05),.10,z+d/2-.22],[.40,.16,.45],'#778784');
+   }
+   for(let zz=z-d/2+.28;zz<z+d/2;zz+=.42){
+    b.box([x,1.12,zz],[w-.20,1.40,.065],'#465c63');
+    b.box([x,1.72,zz],[w-.20,.05,.07],'#8ca6a8');
+   }
+   for(let xx of[x-w/2+.18,x+w/2-.18])for(let zz of[z-d/2+.18,z+d/2-.18]){
+    b.add('cylinder',[xx,2.16,zz],[.045,.035,.045],[0,0,0],'#d4b562');
+   }
+   for(let zz of[z-d/2+.16,z+d/2-.16])b.box([x,1.97,zz],[w-.12,.11,.12],'#e6b84a');
+  }
+  for(let side of[-1,1])for(let z of[-5.6,5.65]){
+   let x=side*10.2;b.box([x,.18,z],[.88,.35,.65],'#273941');
+   b.rod([x,.35,z],[x,2.75,z],.08,'#667a79');
+   b.box([x,2.77,z],[.68,.30,.48],'#d5d0a7');
+   b.box([x,2.77,z+side*.25],[.46,.17,.06],'#f8dfa1');
+  }
+  this.mesh.bossArena=this.R.mesh(b);
  }
  makeDust(){return this.tex(256,256,c=>{c.clearRect(0,0,256,256);let r=randSeed(36);for(let i=0;i<30;i++){let a=r()*Math.PI*2,dd=r()*67,x=128+Math.cos(a)*dd,y=128+Math.sin(a)*dd,rr=36+r()*27;let g=c.createRadialGradient(x-rr*.25,y-rr*.3,rr*.15,x,y,rr);g.addColorStop(0,'rgba(255,250,229,.9)');g.addColorStop(.60,'rgba(240,231,209,.83)');g.addColorStop(.87,'rgba(202,196,182,.35)');g.addColorStop(1,'rgba(218,213,197,0)');c.fillStyle=g;c.fillRect(x-rr,y-rr,rr*2,rr*2);}c.globalCompositeOperation='destination-in';let mask=c.createRadialGradient(128,128,88,128,128,124);mask.addColorStop(0,'rgba(255,255,255,1)');mask.addColorStop(1,'rgba(255,255,255,0)');c.fillStyle=mask;c.fillRect(0,0,256,256);c.globalCompositeOperation='source-over';});}
  makeImpact(){return this.tex(128,128,c=>{c.translate(64,64);c.fillStyle='#fbd455';c.strokeStyle='#273c42';c.lineWidth=4;c.beginPath();for(let i=0;i<20;i++){let a=i/20*Math.PI*2,r=i%2?24:59;c.lineTo(Math.cos(a)*r,Math.sin(a)*r);}c.closePath();c.fill();c.stroke();});}
@@ -849,9 +1003,11 @@ class BrawlScene{
   let attackAge=boss.attackAge||0,charge=boss.attack==='charge'?smooth(0,.95,attackAge):0;
   let recoil=boss.attack==='beam'?Math.sin(Math.min(1,attackAge/1.15)*Math.PI*3)*.10:0;
   let claw=boss.attack==='claw'?Math.sin(smooth(0,1.22,attackAge)*Math.PI)*.85:0;
+  let slamWind=boss.attack==='slamWind'?smooth(0,.88,attackAge):0;
+  let slamHit=boss.attack==='slamImpact'?1-smooth(0,.62,attackAge):0;
   let yaw=boss.yaw??Math.PI,scale=boss.scale||.98,gait=boss.moving?1:0;
   let root=M4.trs([boss.x||0,(boss.y||0)+drop*8+hover+rise+Math.abs(Math.sin(boss.stride||0))*.045*gait,boss.z||0],
-   [collapse*.27+recoil*.45,yaw,collapse*.66+(laugh?Math.sin(t*11)*.12:0)],[scale,scale,scale]);
+   [collapse*.27+recoil*.45+slamWind*.11-slamHit*.16,yaw,collapse*.66+(laugh?Math.sin(t*11)*.12:0)],[scale,scale,scale]);
   let pose={};
   for(let side of ['LEFT','RIGHT']){
    let sign=side==='LEFT'?-1:1;
@@ -862,13 +1018,13 @@ class BrawlScene{
     pose[`SCARAT_${side}_${station}_KNEE`]=[(fore?-1:1)*(brace*.42+drop*.48+collapse*.28)+lift*.39,0,0];
     pose[`SCARAT_${side}_${station}_ANKLE`]=[-(fore?-1:1)*(brace*.12+drop*.20)-lift*.16,0,0];
    }
-   pose[`SCARAT_${side}_CLAW_SHOULDER`]=[-.08-brace*.22-drop*.50-collapse*.55+(side==='LEFT'?-claw*.8:charge*.28-recoil*.7)+(laugh?Math.sin(t*11+sign)*.3:0),0,sign*(.08+(side==='LEFT'?claw*.16:0))];
-   pose[`SCARAT_${side}_CLAW_WRIST`]=[.07+brace*.14+collapse*.4+(side==='LEFT'?claw*.55:charge*.12+recoil*.9),0,0];
+    pose[`SCARAT_${side}_CLAW_SHOULDER`]=[-.08-brace*.22-drop*.50-collapse*.55-slamWind*.62+slamHit*.95+(side==='LEFT'?-claw*.8:charge*.28-recoil*.7)+(laugh?Math.sin(t*11+sign)*.3:0),0,sign*(.08+(side==='LEFT'?claw*.16:0))];
+    pose[`SCARAT_${side}_CLAW_WRIST`]=[.07+brace*.14+collapse*.4-slamWind*.30+slamHit*.55+(side==='LEFT'?claw*.55:charge*.12+recoil*.9),0,0];
   }
   let jawOpen=boss.clawOpen??(.25+.07*Math.sin(this.time*2.3));
   pose.SCARAT_LEFT_CLAW_INNER_JAW=[0,jawOpen,0];
   pose.SCARAT_LEFT_CLAW_OUTER_JAW=[0,-jawOpen,0];
-  pose.SCARAT_PRESSURE_SPINE=[brace*.08,0,0];
+  pose.SCARAT_PRESSURE_SPINE=[brace*.08+slamWind*.16-slamHit*.25,0,0];
   pose.SCARAT_SENSOR_BROW=[collapse*.23+(boss.attack==='charge'?-.12:0),0,claw*.06];
   let matrices={};
   const matrix=name=>{
@@ -884,7 +1040,7 @@ class BrawlScene{
   // SCARAT sensor joint so every attack, fall and resurrection moves it with
   // the machine, while the camera-facing cutout stays readable in gameplay.
   let faceCenter=M4.point(matrix('SCARAT_SENSOR_BROW'),[0,3.05,-2.18]);
-  R.draw(this.mesh.plane,R.billboard(faceCenter,[2.75,2.75,1]),
+  R.draw(this.mesh.plane,R.billboard(faceCenter,[2.05,2.05,1]),
    {texture:this.bossFace,unlit:true,blend:true,depthWrite:false,
     tint:defeated?[.72,.76,.8]:[1,1,1]});
   this.bossMuzzle=M4.point(matrix('SCARAT_RIGHT_CLAW_WRIST'),[1,1.18,-3.81]);
@@ -906,12 +1062,21 @@ class BrawlScene{
     this.drawBeam(p,[p[0]+Math.sin(a*2)*.45,p[1]+.8,p[2]+Math.cos(a*2)*.45],.025,'#a8f3ff',(1-q)*.75);
    }
   }
+  if(boss.attack==='slamWind'){
+   let pulse=.45+.25*Math.sin(this.time*15);
+   for(let radius of[4.75,5.10])R.draw(this.mesh.halo,M4.trs([boss.x,.09,boss.z],[Math.PI/2,0,0],[radius,radius,1]),{tint:rgb('#ffb968'),unlit:true,blend:true,alpha:pulse,depthWrite:false});
+  }
+  if(boss.attack==='slamImpact'){
+   let q=smooth(0,.62,attackAge),radius=.7+q*5.6;
+   R.draw(this.mesh.halo,M4.trs([boss.x,.11,boss.z],[Math.PI/2,0,0],[radius,radius,1]),{tint:rgb('#ffe19e'),unlit:true,blend:true,alpha:(1-q)*.9,depthWrite:false});
+  }
  }
  onEvent(e,sim){if(e.type==='hit'){this.shake=Math.max(this.shake,e.heavy?.12:.045);for(let j=0;j<(this.quality==='low'?5:10);j++)this.effects.push({kind:'chip',x:e.x,y:1.4,z:e.z,vx:(this.random()-.5)*5,vy:2+this.random()*3,vz:(this.random()-.5)*5,life:.40+this.random()*.3,max:.7,color:BRAWL_COLORS[e.id],size:.035+this.random()*.04});if(e.cloud){let angle=this.random()*Math.PI*2;this.pops.push({id:e.id,angle,life:.88,max:.88,rotate:(this.random()-.5)*.6});}this.effects.push({kind:'impact',x:e.x,y:1.8,z:e.z,life:.15,max:.15});}
    if(e.type==='autoPush'){this.shake=Math.max(this.shake,e.strong?.10:.055);this.effects.push({kind:'impact',x:e.x,y:1.35,z:e.z,life:.2,max:.2});}
   if(e.type==='bossLand'){this.shake=Math.max(this.shake,.40);this.effects.push({kind:'impact',x:e.x,y:.8,z:e.z,life:.45,max:.45});}
+  if(e.type==='bossSlam'){this.shake=Math.max(this.shake,.36);this.effects.push({kind:'impact',x:e.x,y:.6,z:e.z,life:.36,max:.36});for(let i=0;i<14;i++)this.effects.push({kind:'chip',x:e.x,y:.2,z:e.z,vx:Math.sin(i*6.28/14)*6,vy:2+this.random()*3,vz:Math.cos(i*6.28/14)*6,life:.65,max:.65,color:'#e9b66c',size:.055});}
   if(e.type==='bossCollapse'||e.type==='bossFinalFall'){this.shake=Math.max(this.shake,.28);for(let i=0;i<18;i++)this.effects.push({kind:'chip',x:sim.boss.x,y:1.7,z:sim.boss.z,vx:(this.random()-.5)*7,vy:1+this.random()*6,vz:(this.random()-.5)*7,life:.6+this.random()*.5,max:1,color:i%2?'#e2b963':'#76eaff',size:.035+this.random()*.04});}
-  if(e.type==='laserShot'){let f=sim.fighters[e.id],muzzle=M4.point(M4.trs([f.x,f.y,f.z],[0,f.yaw,0]),[.53,1.28,1.65]);this.effects.push({kind:'beam',a:muzzle,b:[e.toX,2.0,e.toZ+1.1],color:e.heavy?'#d4faff':'#6feaff',width:e.heavy?.085:.045,life:.22,max:.22});}
+  if(e.type==='laserShot'){let f=sim.fighters[e.id],muzzle=M4.point(M4.trs([f.x,f.y,f.z],[0,f.yaw,0]),[.53,1.28,1.65]);this.effects.push({kind:'beam',a:muzzle,b:[e.toX,e.blocked?1.45:2.0,e.toZ+(e.blocked?0:1.1)],color:e.heavy?'#d4faff':'#6feaff',width:e.heavy?.085:.045,life:.22,max:.22});if(e.blocked)this.effects.push({kind:'impact',x:e.toX,y:1.45,z:e.toZ,life:.15,max:.15});}
   if(e.type==='bossLaser')this.effects.push({kind:'beam',a:this.bossMuzzle||[e.x,1.7,e.z+1.8],b:[e.toX,1.35,e.toZ],color:'#ff9d43',width:.13,life:.31,max:.31});
   if(e.type==='ko'){let f=sim.fighters[e.id];if(sim.cloud.active)this.pops.push({id:e.id,angle:this.random()*Math.PI*2,life:1.15,max:1.15,rotate:.50});}
   if(e.type==='break')for(let i=0;i<15;i++)this.effects.push({kind:'chip',x:e.x,y:.7,z:e.z,vx:(this.random()-.5)*5,vy:2+this.random()*4,vz:(this.random()-.5)*5,life:1,max:1,color:'#bd9260',size:.08});
@@ -930,7 +1095,7 @@ class BrawlScene{
  }
   render(sim,dt,state='playing'){this.renderState=state;this.updateVisual(dt);let R=this.R,M=this.mesh,T=this.texture,player=sim.fighters[sim.selected],portrait=R.w/R.h<.9;let focus=sim.boss?[(sim.boss.x+player.x)*.5,(sim.boss.z+player.z)*.5]:sim.cloud.active&&player.cloud?[sim.cloud.x,sim.cloud.z]:[player.x,player.z];if(state==='menu')focus=[0,0];let sidePanel=state==='tutorial'&&!portrait;let tx=sidePanel?3.6:sim.boss?focus[0]:focus[0]*.46,tz=sim.boss?focus[1]:focus[1]*.36;let k=this.camera?1-Math.exp(-dt*4):1;this.center[0]+= (tx-this.center[0])*k;this.center[1]+=(tz-this.center[1])*k;
    let base=portrait?[0,14.8,17.8]:sidePanel?[0,8.2,10.8]:[0,10.5,14.5];if(sim.boss){let separation=Math.hypot(sim.boss.x-player.x,sim.boss.z-player.z),zoom=Math.min(1.3,1+Math.max(0,separation-(portrait?6:8))*.045);base=base.map(v=>v*zoom);}let target=[this.center[0],.3,this.center[1]-.7],eye=[this.center[0]+base[0],base[1],this.center[1]+base[2]];if(!this.reduced&&state==='playing'){eye[0]+=Math.sin(this.time*74)*this.shake;eye[1]+=Math.cos(this.time*65)*this.shake;}
-  this.camera=eye;R.begin(eye,target,portrait?53:54);R.draw(M.ground,M4.id(),{texture:T.concrete});R.draw(M.world);for(let l of this.labels)R.draw(M.plane,M4.trs(l.p,l.rot,l.s),{texture:l.tex});R.draw(M.plane,M4.trs([0,.013,0],[-Math.PI/2,0,0],[9,9,1]),{texture:T.decal,blend:true,unlit:true,depthWrite:false});
+  this.camera=eye;R.begin(eye,target,portrait?53:54);R.draw(M.ground,M4.id(),{texture:T.concrete});R.draw(M.world);for(let l of this.labels)R.draw(M.plane,M4.trs(l.p,l.rot,l.s),{texture:l.tex});if(sim.boss)R.draw(M.bossArena);else R.draw(M.plane,M4.trs([0,.013,0],[-Math.PI/2,0,0],[9,9,1]),{texture:T.decal,blend:true,unlit:true,depthWrite:false});
   if(state!=='menu'){let col=BRAWL_COLORS[player.id];R.draw(M.ring,M4.trs([player.x,.027,player.z],[Math.PI/2,0,0],[.73,.73,.025]),{tint:rgb(col),unlit:true});let nearest=sim.nearestItem(player);if(nearest&&Math.hypot(nearest.x-player.x,nearest.z-player.z)<1.9&&player.held===null&&!player.ko)R.draw(M.ring,M4.trs([nearest.x,.055,nearest.z],[Math.PI/2,0,this.time],[.51,.51,.022]),{tint:rgb('#f5df88'),unlit:true});}
   // Props have their own physical positions and rotations, not emoji billboards.
   for(let o of sim.items){if(o.broken)continue;let scale=o.type==='mop'?.80:1;this.shadow(o.x,o.z,.8,.45);let rot=[o.flying?o.spin:0,o.flying?o.spin*.7:o.yaw,0];let p=[o.x,o.y,o.z];if(o.held!==null){let f=sim.fighters[o.held];p=[f.x+Math.sin(f.yaw)*.8,f.y+1.55,f.z+Math.cos(f.yaw)*.8];rot=[-.24,f.yaw,0];}R.draw(M.props[o.type],M4.trs(p,rot,[scale,scale,scale]));}
@@ -992,7 +1157,7 @@ class BrawlAudio{
  tone(frequency=180,duration=.1,volume=.09,type='sine'){let c=this.ctx;if(!c||this.muted||!this.settings.sfx||c.state!=='running')return;let o=c.createOscillator(),g=c.createGain(),t=c.currentTime;o.type=type;o.frequency.setValueAtTime(frequency,t);o.frequency.exponentialRampToValueAtTime(Math.max(30,frequency*.32),t+duration);g.gain.setValueAtTime(volume,t);g.gain.exponentialRampToValueAtTime(.001,t+duration);o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+duration+.02);}
  laugh(){let c=this.ctx;if(!c||this.muted||!this.settings.sfx||c.state!=='running')return;for(let i=0;i<5;i++){let t=c.currentTime+i*.27,o=c.createOscillator(),g=c.createGain(),f=c.createBiquadFilter();o.type='sawtooth';o.frequency.setValueAtTime(112-i*7,t);o.frequency.exponentialRampToValueAtTime(72-i*4,t+.21);f.type='lowpass';f.frequency.value=430+i*36;g.gain.setValueAtTime(.001,t);g.gain.exponentialRampToValueAtTime(.065,t+.035);g.gain.exponentialRampToValueAtTime(.001,t+.23);o.connect(f);f.connect(g);g.connect(c.destination);o.start(t);o.stop(t+.25);}}
  noise(duration=.13,volume=.12,filter=950){let c=this.ctx;if(!c||this.muted||!this.settings.sfx||c.state!=='running')return;let n=Math.max(1,Math.floor(c.sampleRate*duration)),b=c.createBuffer(1,n,c.sampleRate),data=b.getChannelData(0);for(let i=0;i<n;i++)data[i]=(Math.random()*2-1)*(1-i/n);let s=c.createBufferSource(),g=c.createGain(),f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=filter;g.gain.value=volume;s.buffer=b;s.connect(f);f.connect(g);g.connect(c.destination);s.start();}
- event(e){if(e.type==='hit'){this.tone(e.heavy?91:160,e.heavy?.19:.1,e.heavy?.16:.11,'triangle');this.noise(e.heavy?.17:.10,e.heavy?.19:.13,e.heavy?750:1500);}if(e.type==='autoPush'){this.tone(e.strong?105:190,.22,.15,'triangle');this.noise(.18,.14,750);}if(e.type==='swing')this.noise(.10,.045,2200);if(e.type==='pickup')this.tone(530,.08,.035);if(e.type==='throw')this.noise(.16,.09,2800);if(e.type==='dodge')this.noise(.17,.06,1700);if(e.type==='perfectCounter'){this.tone(690,.16,.07);this.tone(1050,.12,.04);}if(e.type==='ko'){this.tone(240,.38,.12,'triangle');this.noise(.25,.08,650);}if(e.type==='laserShot')this.tone(e.heavy?390:670,e.heavy?.27:.12,e.heavy?.08:.035,'sawtooth');if(e.type==='bossLaser'){this.tone(88,.47,.16,'sawtooth');this.noise(.32,.10,1000);}if(e.type==='bossLand'||e.type==='bossCollapse'){this.tone(62,.60,.23,'triangle');this.noise(.60,.25,430);}if(e.type==='bossResurrected')this.tone(260,.5,.12,'sawtooth');if(e.type==='bossLaugh')this.laugh();}
+ event(e){if(e.type==='hit'){this.tone(e.heavy?91:160,e.heavy?.19:.1,e.heavy?.16:.11,'triangle');this.noise(e.heavy?.17:.10,e.heavy?.19:.13,e.heavy?750:1500);}if(e.type==='autoPush'){this.tone(e.strong?105:190,.22,.15,'triangle');this.noise(.18,.14,750);}if(e.type==='swing')this.noise(.10,.045,2200);if(e.type==='pickup')this.tone(530,.08,.035);if(e.type==='throw')this.noise(.16,.09,2800);if(e.type==='dodge')this.noise(.17,.06,1700);if(e.type==='perfectCounter'){this.tone(690,.16,.07);this.tone(1050,.12,.04);}if(e.type==='ko'){this.tone(240,.38,.12,'triangle');this.noise(.25,.08,650);}if(e.type==='laserShot')this.tone(e.heavy?390:670,e.heavy?.27:.12,e.heavy?.08:.035,'sawtooth');if(e.type==='bossLaser'){this.tone(88,.47,.16,'sawtooth');this.noise(.32,.10,1000);}if(e.type==='bossLand'||e.type==='bossCollapse'||e.type==='bossSlam'){this.tone(62,.60,.23,'triangle');this.noise(.60,.25,430);}if(e.type==='bossSlamWind')this.tone(132,.66,.11,'sawtooth');if(e.type==='bossResurrected')this.tone(260,.5,.12,'sawtooth');if(e.type==='bossLaugh')this.laugh();}
  voice(line){if(this.muted||!this.settings.voice||!line.audio||performance.now()-this.lastVoice<3200)return;this.lastVoice=performance.now();this.stop();let a=new Audio(asset(line.audio));a.volume=.66;this.clip=a;a.play().catch(()=>{});}
 }
 class BrawlApp{
@@ -1001,9 +1166,9 @@ class BrawlApp{
  fatal(e){console.error(e);this.state='error';$('fatalText').textContent=e.message||String(e);$('fatal').classList.add('visible');}
  buildHeroes(){let names=BrawlSim.NAMES;$('heroes').innerHTML=names.map((n,i)=>`<button class="hero ${i===this.selected?'selected':''}" style="--color:${BRAWL_COLORS[i]}" data-hero="${i}" aria-label="Select ${n}" aria-pressed="${i===this.selected}"><img src="${asset('head-'+(i+1)+'.png')}" alt="${n}"><b>${n}</b></button>`).join('');document.querySelectorAll('[data-hero]').forEach(b=>b.onclick=()=>{this.selected=Number(b.dataset.hero);this.sim.selected=this.selected;save(PLAYER_KEY,this.selected);this.buildHeroes();this.audio.unlock();this.audio.tone(330+this.selected*80,.1,.03);});let best=saved('volt-brawl-3d-best',0);$('bestScore').textContent=best?'BEST '+Math.round(best)+' PTS':'LOCAL / OFFLINE';}
  buildHUD(){$('crew').innerHTML=this.sim.fighters.map(f=>`<div class="fightercard ${f.id===this.selected?'me':''}" id="card${f.id}" style="--color:${BRAWL_COLORS[f.id]}"><img src="${asset('head-'+(f.id+1)+'.png')}" alt="${f.name}"><b>${f.name}</b><span class="health" id="hp${f.id}">100</span><div class="hp"><i id="bar${f.id}"></i></div><small id="inj${f.id}">CLEAN</small></div>`).join('');$('worldUI').innerHTML='';this.nameplates=this.sim.fighters.map(f=>{let n=document.createElement('div');n.className='nameplate';n.style.setProperty('--color',BRAWL_COLORS[f.id]);n.innerHTML=`${f.name}${f.id===this.selected?' / YOU':''}<div class="hp"><i></i></div>`;$('worldUI').appendChild(n);return n;});this.buildWorldActions();$('modeTitle').textContent=MODE_TITLES[this.mode];document.documentElement.style.setProperty('--hero',BRAWL_COLORS[this.selected]);$('bossHud').hidden=true;document.body.classList.remove('boss-mode');}
- buildWorldActions(){let ui=$('worldUI');this.dizzyMarks=this.sim.fighters.map(()=>{let n=document.createElement('div');n.className='dizzy-stars';n.setAttribute('aria-hidden','true');n.innerHTML='<span>★</span><span>★</span><span>★</span>';ui.appendChild(n);return n;});let make=(label,icon,key,type=key)=>{let b=document.createElement('button');b.className='world-action';b.type='button';b.dataset.worldAction=key;b.innerHTML=`<svg><use href="#i-${icon}"/></svg><b>${label}</b>`;b.onclick=e=>{e.preventDefault();this.audio.unlock();this.act(type);};ui.appendChild(b);return b;};this.worldActions={grab:make('GRAB','grab','grab'),spin:make('SPIN','spin','spin'),pick:make('PICK UP','pick','pick'),escape:make('ESCAPE','grab','escape','grab')};}
+ buildWorldActions(){let ui=$('worldUI');this.dizzyMarks=this.sim.fighters.map(()=>{let n=document.createElement('div');n.className='dizzy-stars';n.setAttribute('aria-hidden','true');n.innerHTML='<span>★</span><span>★</span><span>★</span>';ui.appendChild(n);return n;});let b=document.createElement('button');b.className='world-action';b.type='button';b.dataset.worldAction='spin';b.innerHTML='<svg><use href="#i-spin"/></svg><b>SPIN</b>';b.onclick=e=>{e.preventDefault();this.audio.unlock();this.act('spin');};ui.appendChild(b);this.worldActions={spin:b};}
  bind(){
-   if(this.mobileControls){for(let [action,label] of [['punch','Punch; becomes Heavy Punch after a punch combo'],['kick','Kick; becomes Heavy Kick after a kick combo'],['dodge','Dodge']])$('actions').querySelector(`[data-action="${action}"]`).setAttribute('aria-label',label);}
+   if(this.mobileControls){for(let [action,label] of [['punch','Punch; becomes Heavy Punch after a punch combo'],['kick','Kick; becomes Heavy Kick after a kick combo'],['dodge','Dodge'],['grab','Grab a dizzy rival or slam a held rival'],['pick','Pick up a nearby item or throw the held item']])$('actions').querySelector(`[data-action="${action}"]`).setAttribute('aria-label',label);}
    $('startButton').onclick=()=>this.start();$('againButton').onclick=()=>this.start();$('restartButton').onclick=()=>this.start();$('quickRestart').onclick=()=>this.start();$('pauseButton').onclick=()=>this.pause();$('homeButton').onclick=e=>{e.preventDefault();this.pause();};$('resumeButton').onclick=()=>this.resume();$('menuButton').onclick=()=>this.menu();$('resultMenuButton').onclick=()=>this.menu();$('settingsButton').onclick=()=>this.openSettings();$('pauseSettings').onclick=()=>this.openSettings();$('closeSettings').onclick=()=>{$('settingsScreen').classList.remove('visible');};$('helpButton').onclick=()=>this.openShowcase();$('pauseHelp').onclick=()=>this.openShowcase();$('closeHelp').onclick=()=>this.closeShowcase();$('showcasePrev').onclick=()=>this.showDemo(this.demoIndex-1);$('showcaseNext').onclick=()=>this.showDemo(this.demoIndex+1);$('showcaseReplay').onclick=()=>this.showDemo(this.demoIndex);$('showcaseSelect').onchange=e=>this.showDemo(Number(e.target.value));$('showcaseSelect').innerHTML=SHOWCASES.map((d,i)=>`<option value="${i}">${String(i+1).padStart(2,'0')} · ${d.title}</option>`).join('');for(let id of ['switchModeButton','pauseSwitchMode','resultSwitchMode'])$(id).onclick=()=>this.switchToScooter();
   $('soundButton').onclick=()=>{this.audio.unlock();this.audio.muted=!this.audio.muted;this.audio.stop();$('soundButton').style.opacity=this.audio.muted?.45:1;$('soundButton').setAttribute('aria-label',this.audio.muted?'Unmute sound':'Mute sound');};
   document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{this.mode=b.dataset.mode;document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('selected',x===b));});
@@ -1071,9 +1236,11 @@ class BrawlApp{
    if(e.type==='bossStart'){document.body.classList.add('boss-mode');$('bossHud').hidden=false;this.toast('SCARAT IS DESCENDING · THE CREW RISES TOGETHER',2.2);this.addFeed('SCARAT enters the yard');}
    if(e.type==='bossLand')this.toast('IMPACT · SCARAT HAS LANDED',1.5);
    if(e.type==='bossRevive')this.makePop('REVIVED',e.id,'#8aeaff');
-   if(e.type==='bossBattle')this.toast('FIRE TOGETHER · DODGE THE CANNON',2.5);
+   if(e.type==='bossBattle')this.toast('USE COVER AND HIGH GROUND · FIRE TOGETHER',2.5);
    if(e.type==='bossCharge')this.toast('CANNON CHARGING · MOVE OR DODGE',1.1);
    if(e.type==='bossClawWind')this.toast('CLAW REACHING · DODGE AWAY',.9);
+   if(e.type==='bossSlamWind')this.toast('GROUND SMASH · RETREAT OR TAKE HIGH GROUND',1.1);
+   if(e.type==='bossSlam')this.toast('SHOCKWAVE · GET CLEAR',.9);
    if(e.type==='bossGrab')this.makePop('GRABBED!',e.id,'#ffc075');
    if(e.type==='bossCollapse')this.toast('SCARAT DOWN · WATCH THE REACTOR',2.0);
    if(e.type==='bossRebuild')this.toast('REACTOR REBUILD · SCARAT RISES AGAIN',2.0);
@@ -1108,10 +1275,12 @@ class BrawlApp{
   $('clock').textContent=this.format(this.mode==='score'?Math.max(0,90-s.time):s.time);$('condition').textContent=p.dizzyUntil>s.time?'DIZZY':p.blocking?'AUTO BLOCK':s.condition(p);$('staminaValue').textContent=Math.round(p.stamina);$('staminaBar').style.width=p.stamina+'%';$('rageBar').style.width=p.rage+'%';$('rageLabel').textContent='RAGE '+Math.round(p.rage)+'%';$('heldItem').textContent=p.held!==null?BrawlSim.ITEMS[s.items[p.held].type].label+' IN HAND':'HANDS FREE';let r=Math.max(...p.revenge),ri=p.revenge.indexOf(r);$('revenge').textContent=r>0?'GRUDGE: '+BrawlSim.NAMES[ri]:'NO GRUDGES. YET.';
    let ready=p.comboUntil>s.time?p.comboReady:null,usable=ready&&p.stamina>=BrawlSim.ATTACKS[ready].cost;$('punchLabel').textContent=ready==='heavy'&&usable?'HEAVY PUNCH':'PUNCH';$('kickLabel').textContent=ready==='heavyKick'&&usable?'HEAVY KICK':'KICK';for(let [type,upgrade]of[['punch','heavy'],['kick','heavyKick']]){let b=$('actions').querySelector(`[data-action="${type}"]`),charged=ready===upgrade&&usable;b.classList.toggle('charged',charged);b.setAttribute('aria-label',charged?(type==='punch'?'Heavy Punch':'Heavy Kick')+' ready for '+Math.ceil(p.comboUntil-s.time)+' seconds':type.toUpperCase());}
    let near=s.grabCandidate(p),item=p.held===null?s.nearestItem(p):null,closeItem=item&&Math.hypot(item.x-p.x,item.z-p.z)<=1.9,hits=p.comboHits.filter(h=>s.time-h.time<=3.2).length;
-   $('actionGuide').textContent=p.grabbedBy!==null?'TAP ESCAPE ABOVE YOUR FIGHTER':p.grabTarget!==null?'CHOOSE SLAM OR SPIN ABOVE THE RIVAL':near?'TAP GRAB ABOVE THE DIZZY RIVAL':p.held!==null?'TAP THROW ABOVE YOUR FIGHTER':closeItem?'TAP PICK UP ABOVE THE PROP':ready?usable?(ready==='heavy'?'HEAVY PUNCH':'HEAVY KICK')+' READY · TAP '+(ready==='heavy'?'PUNCH':'KICK')+' · '+Math.ceil(p.comboUntil-s.time)+'s':'COMBO READY · REST FOR HEAVY':p.blocking?'AUTO BLOCKING · MOVE TO ATTACK':hits?`COMBO ${hits}/3 · LAND ${3-hits} MORE HIT${3-hits===1?'':'S'}`:'3 HITS → HEAVY · EMPTY STAMINA → GRAB · NEAR PROP → PICK UP';
+   $('grabLabel').textContent=p.grabTarget!==null?'SLAM':p.grabbedBy!==null?'ESCAPE':'GRAB';
+   $('pickLabel').textContent=p.held!==null?'THROW':'PICK UP';
+   $('actionGuide').textContent=p.grabbedBy!==null?'TAP GRAB TO ESCAPE':p.grabTarget!==null?'TAP GRAB TO SLAM OR SPIN NEAR THE RIVAL':near?'TAP GRAB FOR THE DIZZY RIVAL':p.held!==null?'TAP THROW':closeItem?'TAP PICK UP':ready?usable?(ready==='heavy'?'HEAVY PUNCH':'HEAVY KICK')+' READY · TAP '+(ready==='heavy'?'PUNCH':'KICK')+' · '+Math.ceil(p.comboUntil-s.time)+'s':'COMBO READY · REST FOR HEAVY':p.blocking?'AUTO BLOCKING · MOVE TO ATTACK':hits?`COMBO ${hits}/3 · LAND ${3-hits} MORE HIT${3-hits===1?'':'S'}`:'3 HITS → HEAVY · EMPTY STAMINA → GRAB · NEAR PROP → PICK UP';
    $('cloudBadge').hidden=!s.cloud.active;$('spectator').hidden=!(p.ko&&this.mode==='last'&&!s.finished);
   if(this.mode==='last')$('objective').textContent=s.fighters.filter(f=>!f.ko).length+' STILL STANDING / '+p.kos+' ELIMINATIONS';else if(this.mode==='score')$('objective').textContent='YOU: '+Math.round(p.score)+' PTS / LEADER: '+s.rank()[0].name;else $('objective').textContent='CROWN: '+Math.floor(s.crown.time[this.selected])+'/45s / '+(s.crown.holder===null?'ON THE GROUND':BrawlSim.NAMES[s.crown.holder]);
-   document.querySelectorAll('[data-action]').forEach(b=>{let a=b.dataset.action,actual=usable&&a==='punch'&&ready==='heavy'?'heavy':usable&&a==='kick'&&ready==='heavyKick'?'heavyKick':a,c=BrawlSim.ATTACKS[actual];let disabled=p.ko||!s.canAct(p)||p.held!==null||(c&&p.stamina<c.cost);b.classList.toggle('unavailable',!!disabled);let progress=p.state===actual&&p.duration?100*(1-p.age/p.duration):0;b.style.setProperty('--progress',Math.max(0,progress)+'%');});
+   document.querySelectorAll('[data-action]').forEach(b=>{let a=b.dataset.action,actual=usable&&a==='punch'&&ready==='heavy'?'heavy':usable&&a==='kick'&&ready==='heavyKick'?'heavyKick':a,c=BrawlSim.ATTACKS[actual];let disabled=a==='grab'?p.ko||!(p.grabbedBy!==null||p.grabTarget!==null||near&&p.stamina>=13&&s.canAct(p)):a==='pick'?p.ko||!(p.held!==null||closeItem&&s.canAct(p)):p.ko||!s.canAct(p)||p.held!==null||(c&&p.stamina<c.cost);b.classList.toggle('unavailable',!!disabled);let progress=p.state===actual&&p.duration?100*(1-p.age/p.duration):0;b.style.setProperty('--progress',Math.max(0,progress)+'%');});
   this.feed=this.feed.filter(f=>f.until>this.uiClock);$('combatfeed').innerHTML=this.feed.map(f=>'<div class="feedline">'+f.text+'</div>').join('');if(this.uiClock>this.toastUntil)$('toast').classList.remove('on');$('perf').textContent=`${Math.round(this.fps)} FPS / ${this.scene.R.draws} DRAWS / ${Math.round(this.scene.R.tris/1000)}k TRI / DPR ${this.scene.R.pixelRatio.toFixed(2)}`;
  }
   worldHUD(dt){
@@ -1138,11 +1307,8 @@ class BrawlApp{
    for(let f of this.sim.fighters){let mark=this.dizzyMarks?.[f.id];if(!mark)continue;let h=f.renderHead||[f.x,2.36,f.z],q=R.project([h[0],h[1]+.48,h[2]]);let visible=!this.sim.boss&&q.visible&&!f.ko&&!f.cloud&&f.dizzyUntil>this.sim.time&&['dizzy','down','grabbed','groundGrabbed'].includes(f.state);mark.style.display=visible?'block':'none';if(visible){mark.style.left=q.x+'px';mark.style.top=q.y+'px';}}
    let player=this.sim.fighters[this.selected],playing=this.state==='playing'&&!player.ko&&!this.sim.boss,held=player.grabTarget!==null?this.sim.fighters[player.grabTarget]:null,near=playing&&!held?this.sim.grabCandidate(player):null,target=held||near;
    let place=(button,point,label,dx=0,dy=-55)=>{let q=point&&R.project(point),visible=playing&&q?.visible;button.hidden=!visible;if(!visible)return;button.querySelector('b').textContent=label;button.setAttribute('aria-label',label);button.style.left=clamp(q.x+dx,40,innerWidth-40)+'px';button.style.top=clamp(q.y+dy,innerHeight<501?105:160,innerHeight-100)+'px';};
-   let h=target?.renderHead||[target?.x||0,2.36,target?.z||0];place(this.worldActions.grab,target&&player.grabbedBy===null&&(held||player.stamina>=13)?[h[0],h[1],h[2]]:null,held?'SLAM':target?.state==='down'?'GROUND GRAB':'GRAB',held?-39:0);
+   let h=target?.renderHead||[target?.x||0,2.36,target?.z||0];
    place(this.worldActions.spin,held&&player.grabbedBy===null?[h[0],h[1],h[2]]:null,'SPIN',39);
-   let item=player.held!==null?this.sim.items[player.held]:this.sim.nearestItem(player),itemNear=item&&player.held!==null||item&&Math.hypot(item.x-player.x,item.z-player.z)<=1.9;
-   place(this.worldActions.pick,itemNear&&player.grabbedBy===null&&this.sim.canAct(player)?[item.x,item.y+.9,item.z]:null,player.held!==null?'THROW':'PICK UP',0,-30);
-   let ph=player.renderHead||[player.x,2.36,player.z];place(this.worldActions.escape,player.grabbedBy!==null?[ph[0],ph[1],ph[2]]:null,'ESCAPE');
    if(target&&this.nameplates?.[target.id])this.nameplates[target.id].style.display='none';
   for(let p of this.pops){p.age+=dt;let q=R.project([p.x,p.y+p.age*1.6,p.z]);p.n.style.display=q.visible?'block':'none';p.n.style.left=q.x+'px';p.n.style.top=q.y+'px';p.n.style.opacity=Math.min(1,(p.max-p.age)*4);if(p.age>=p.max)p.n.remove();}this.pops=this.pops.filter(p=>p.age<p.max);
   for(let s of this.speeches){let f=this.sim.fighters[s.id],hp=f.renderHead||[f.x,2.36,f.z],q=R.project([hp[0],hp[1]+.85,hp[2]]);let rect=s.n.getBoundingClientRect(),mw=rect.width||180,mh=rect.height||100;let side=f.id%2?1:-1,x=clamp(q.x+side*(mw*.65+16),mw/2+9,innerWidth-mw/2-9),y=clamp(q.y-28,innerHeight<500?155:245,innerHeight-210);s.n.style.left=x+'px';s.n.style.top=y+'px';s.n.style.display=q.visible&&this.settings.captions?'block':'none';if(this.uiClock>s.until)s.n.remove();}this.speeches=this.speeches.filter(s=>this.uiClock<=s.until);
