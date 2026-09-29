@@ -92,6 +92,18 @@ function connect(s,p,q,type){
 }
 {
   const {s,p,q}=setup();
+  s.dizzy(q,2.2);q.inv=0;
+  assert.equal(s.action(0,'spin'),true,'Spin directly starts a grab on a dizzy rival');
+  assert.equal(p.spinGrabTarget,q.id);
+  assert.equal(p.grabTarget,q.id);
+  step(s,.46);
+  assert.equal(p.state,'spin','the grab windup automatically becomes the spin throw');
+  assert.equal(p.grabTarget,null);
+  assert.equal(p.spinGrabTarget,null);
+  assert(q.hp<100);
+}
+{
+  const {s,p,q}=setup();
   p.yaw=0;
   assert.equal(s.action(0,'punch'),true);
   assert.ok(Math.abs(p.yaw-Math.PI/2)<.01,'attack automatically faces the nearest rival');

@@ -58,16 +58,23 @@ claw.beginBoss(0);frames(claw, 290);
 for (const f of claw.fighters.slice(1)) f.weaponCooldown = 1000;
 const victim = claw.fighters[0];
 victim.x = 0;victim.z = 2.0;victim.inv = 0;
+const throwOrigin={x:victim.x,z:victim.z};
 claw.boss.attack = 'claw';claw.boss.attackAge = 0;claw.boss.targetIds = [0];
 frames(claw, 35);
 assert.equal(victim.state, 'bossGrabbed', 'claw can grab a standing fighter');
-frames(claw, 43);
+assert(frames(claw, 43).some(e=>e.type==='bossThrow'),'claw visibly releases its victim');
 assert(victim.hp < 100, 'claw throw causes damage');
 assert.equal(victim.grabbedBy, null);
+assert.equal(victim.state,'bossThrown','surviving victim stays in the airborne throw pose');
 claw.boss.phase = 'resurrect';
 claw.boss.age = 0;
-frames(claw, 90);
+assert(frames(claw, 65).some(e=>e.type==='bossThrowLand'),'long claw throw lands with an impact');
 assert(victim.y < .01, 'a thrown survivor lands instead of hovering');
+assert(Math.hypot(victim.x-throwOrigin.x,victim.z-throwOrigin.z)>5,
+  'the claw sends a fighter across the arena');
+assert(['down','getup'].includes(victim.state),'landing has a recovery pose');
+frames(claw,80);
+assert.equal(victim.state,'idle','the fighter can recover after landing');
 
 // AI companions support the selected player without clearing the boss phases for them.
 const pressure = new BrawlSim.Sim({selected:0, ai:false, seed:7391});
@@ -104,7 +111,7 @@ for (let i=0; i<60*120 && !active.finished; i++) {
     const goal={x:b.x+Math.sin(angle)*6.5,z:b.z+Math.cos(angle)*6.5};
     const dx=goal.x-p.x,dz=goal.z-p.z,m=Math.hypot(dx,dz)||1;
     active.moveInput(dx/m,dz/m);
-    if (b.attack==='charge'&&b.attackAge>.6||b.attack==='slamWind'&&b.attackAge>.45)
+    if (b.attack==='charge'&&b.attackAge>.6||b.attack==='slamWind'&&b.attackAge>.45||b.attack==='claw'&&b.attackAge>.28)
       active.action(0,'dodge',{x:dx/m,z:dz/m});
     active.action(0,'punch');
   }
@@ -137,6 +144,15 @@ shooter.x=0;shooter.z=4.5;
 const exposedHp=tactical.boss.hp;shooter.weaponCooldown=0;
 tactical.action(0,'punch');
 assert(tactical.boss.hp<exposedHp,'an exposed firing lane works');
+shooter.x=tactical.bounds.x-.1;shooter.z=0;tactical.boss.x=0;tactical.boss.z=0;
+const edgeHp=tactical.boss.hp,edgeDistance=Math.hypot(shooter.x-tactical.boss.x,shooter.z-tactical.boss.z);
+shooter.weaponCooldown=0;tactical.action(0,'punch');
+const farShot=tactical.drainEvents().findLast(e=>e.type==='laserShot'&&e.id===0);
+assert(edgeDistance>BrawlSim.BOSS_LASER_RANGE);
+assert.equal(tactical.boss.hp,edgeHp,'edge-of-map player fire has no damage');
+assert.equal(farShot.outOfRange,true);
+assert(Math.abs(Math.hypot(farShot.toX-farShot.x,farShot.toZ-farShot.z)-BrawlSim.BOSS_LASER_RANGE)<.001,
+  'the visible beam stops at the same range as gameplay damage');
 
 const quake=new BrawlSim.Sim({selected:0,ai:false,seed:23});
 quake.beginBoss(0);frames(quake,290);

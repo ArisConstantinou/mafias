@@ -27,7 +27,7 @@ const NAMES=['Mahmud','Mushu','Billy','Kay'];
 class Sim{
  constructor(options={}){this.seed=options.seed||73129;this.random=rng(this.seed);this.ai=options.ai!==false;this.difficulty=options.difficulty||'normal';this.selected=options.selected||0;this.mode=options.mode||'last';this.bounds={x:11.5,z:8};this.obstacles=[{x:-8.8,z:-5.3,r:1.35},{x:8.8,z:-4.8,r:1.25},{x:-8.8,z:5.7,r:1},{x:9.1,z:5.4,r:1.0}];this.reset();}
  reset(){this.time=0;this.events=[];this.finished=false;this.winner=null;this.draw=false;this.boss=null;this.bossResolved=false;this.hitStop=0;this.cloud={active:false,x:0,z:0,r:2.4,members:[],age:0,fade:0,quiet:0,serial:0};this.crown={x:0,z:0,holder:null,time:[0,0,0,0]};this.fighters=NAMES.map((n,i)=>this.newFighter(i));this.items=[];let types=Object.keys(ITEMS);let ps=[[-4.8,3.4],[4.8,-3.6],[-6.4,-.4],[6.2,2.5],[1.8,5.8],[-2.7,-5.9],[0,3.5],[-5,-4.8],[7,-1],[-1.3,-3.2],[4.6,5.4],[-6.4,4.8]];ps.forEach((p,i)=>this.items.push(this.newItem(types[i%types.length],...p)));this.input={x:0,z:0};return this;}
- newFighter(i){let p=[[-3.5,2.1],[3.1,1.8],[-2.8,-2.6],[3.3,-2.5]][i];return{id:i,name:NAMES[i],x:p[0],z:p[1],y:0,vy:0,vx:0,vz:0,yaw:Math.atan2(-p[0],-p[1]),hp:100,stamina:100,rage:0,state:'idle',age:0,duration:0,attack:null,attackHit:false,inv:0,cool:0,head:0,body:0,leg:0,damage:0,hits:0,throws:0,kos:0,score:0,combo:0,comboTime:0,comboHits:[],comboReady:null,comboUntil:0,stillTime:0,blocking:false,dizzyUntil:0,revenge:[0,0,0,0],held:null,grabbedBy:null,grabTarget:null,grabTime:0,ko:false,respawn:0,walk:0,speed:0,lastAttack:-100,lastHit:-100,lastAttacker:null,pressureBy:null,pressureHits:0,pressureSince:-100,pressureLast:-100,pushCooldown:0,think:.15+i*.1,aiTarget:null,aiAction:.4+i*.18,intent:{x:0,z:0},cloud:false,escapedUntil:0,dodgeX:0,dodgeZ:0,attackSide:1,rageAttack:false,blocks:0};}
+ newFighter(i){let p=[[-3.5,2.1],[3.1,1.8],[-2.8,-2.6],[3.3,-2.5]][i];return{id:i,name:NAMES[i],x:p[0],z:p[1],y:0,vy:0,vx:0,vz:0,yaw:Math.atan2(-p[0],-p[1]),hp:100,stamina:100,rage:0,state:'idle',age:0,duration:0,attack:null,attackHit:false,inv:0,cool:0,head:0,body:0,leg:0,damage:0,hits:0,throws:0,kos:0,score:0,combo:0,comboTime:0,comboHits:[],comboReady:null,comboUntil:0,stillTime:0,blocking:false,dizzyUntil:0,revenge:[0,0,0,0],held:null,grabbedBy:null,grabTarget:null,spinGrabTarget:null,grabTime:0,ko:false,respawn:0,walk:0,speed:0,lastAttack:-100,lastHit:-100,lastAttacker:null,pressureBy:null,pressureHits:0,pressureSince:-100,pressureLast:-100,pushCooldown:0,think:.15+i*.1,aiTarget:null,aiAction:.4+i*.18,intent:{x:0,z:0},cloud:false,escapedUntil:0,dodgeX:0,dodgeZ:0,attackSide:1,rageAttack:false,blocks:0};}
  newItem(type,x,z){return{id:this.items?this.items.length:0,type,x,z,y:0,vx:0,vz:0,vy:0,spin:0,yaw:0,held:null,owner:null,flying:false,broken:false,health:ITEMS[type].durability,hit:new Set(),slipUntil:0};}
  emit(type,data={}){this.events.push({type,time:this.time,...data});if(this.events.length>220)this.events.shift();}
  drainEvents(){let e=this.events;this.events=[];return e;}
@@ -53,8 +53,8 @@ class Sim{
   if(type==='dodge'){
    if(f.stamina<18)return false;f.stamina-=18;let v=move||f.intent;let m=len(v?.x||0,v?.z||0);let x=m>.1?v.x/m:Math.sin(f.yaw),z=m>.1?v.z/m:Math.cos(f.yaw);f.dodgeX=x;f.dodgeZ=z;f.inv=.29;f.escapedUntil=this.time+1.6;this.state(f,'dodge',.38);this.emit('dodge',{id});return true;
   }
-  if(type==='grab'){
-   let q=this.grabCandidate(f);if(f.stamina<13||f.held!==null||!q)return false;f.stamina-=13;let grounded=q.state==='down';this.face(f,q);f.grabTarget=q.id;q.grabbedBy=id;q.grabTime=grounded?1.8:1.55;this.state(f,grounded?'groundGrabbing':'grabbing',q.grabTime);this.state(q,grounded?'groundGrabbed':'grabbed',q.grabTime);f.lastAttack=this.time;this.emit('grab',{id,target:q.id,grounded});return true;
+  if(type==='grab'||type==='spin'){
+   let q=this.grabCandidate(f);if(f.stamina<13||f.held!==null||!q)return false;f.stamina-=13;let grounded=q.state==='down';this.face(f,q);f.grabTarget=q.id;f.spinGrabTarget=type==='spin'?q.id:null;q.grabbedBy=id;q.grabTime=grounded?1.8:1.55;this.state(f,grounded?'groundGrabbing':'grabbing',q.grabTime);this.state(q,grounded?'groundGrabbed':'grabbed',q.grabTime);f.lastAttack=this.time;this.emit('grab',{id,target:q.id,grounded});return true;
   }
   if(type==='heavy'||type==='heavyKick')return false;
   let upgrade=type==='punch'?'heavy':type==='kick'?'heavyKick':null;
@@ -64,7 +64,7 @@ class Sim{
   f.stamina-=a.cost;f.attack=type;f.attackHit=false;f.attackSide*=-1;f.rageAttack=f.rage>=99.9;if(f.rageAttack){f.rage=0;this.emit('rage',{id});}
   let q=this.target(f,a.range+1);this.face(f,q);this.state(f,type,a.wind+a.active+a.recovery);f.lastAttack=this.time;return true;
  }
- releaseGrab(f){if(!f)return;if(f.grabTarget!==null){let q=this.fighters[f.grabTarget];if(q){q.grabbedBy=null;if(!q.ko)this.state(q,'idle');}f.grabTarget=null;}if(f.grabbedBy!==null){let a=this.fighters[f.grabbedBy];if(a){a.grabTarget=null;if(!a.ko)this.state(a,'idle');}f.grabbedBy=null;}if(!f.ko)this.state(f,'idle');}
+ releaseGrab(f){if(!f)return;if(f.grabTarget!==null){let q=this.fighters[f.grabTarget];if(q){q.grabbedBy=null;if(!q.ko)this.state(q,'idle');}f.grabTarget=null;f.spinGrabTarget=null;}if(f.grabbedBy!==null){let a=this.fighters[f.grabbedBy];if(a){a.grabTarget=null;a.spinGrabTarget=null;if(!a.ko)this.state(a,'idle');}f.grabbedBy=null;}if(!f.ko)this.state(f,'idle');}
  dropItem(f){if(f.held===null)return;let o=this.items[f.held];o.held=null;o.x=f.x;o.z=f.z;o.y=1;o.vy=1;o.vx=0;o.vz=0;o.flying=true;o.owner=null;o.hit.clear();f.held=null;}
  slam(f){let q=this.fighters[f.grabTarget];if(!q)return;this.releaseGrab(f);q.x=f.x+Math.sin(f.yaw)*1.4;q.z=f.z+Math.cos(f.yaw)*1.4;q.inv=0;this.hit(q,f,14,'body',6,true,'slam');this.state(f,'slam',.55);this.emit('slam',{id:f.id,target:q.id});}
  spinThrow(f){let q=this.fighters[f.grabTarget];if(!q)return;this.releaseGrab(f);q.x=f.x+Math.sin(f.yaw)*1.35;q.z=f.z+Math.cos(f.yaw)*1.35;q.inv=0;this.hit(q,f,12,'body',9,true,'spin',true);this.state(f,'spin',.78);this.emit('spin',{id:f.id,target:q.id});}
@@ -112,7 +112,7 @@ class Sim{
    if(f.grabbedBy!==null){let a=this.fighters[f.grabbedBy];if(!a||a.ko){this.releaseGrab(f);continue;}f.x=a.x+Math.sin(a.yaw)*1.1;f.z=a.z+Math.cos(a.yaw)*1.1;f.yaw=a.yaw+Math.PI;f.grabTime-=dt;if(f.grabTime<=0)this.slam(a);continue;}
    f.stamina=cap(f.stamina+(this.canAct(f)?24:9)*dt,0,100);f.intent={x:0,z:0};
    if(f.id===this.selected)f.intent={...this.input};else if(this.ai)this.aiStep(f,dt);
-   if(f.grabTarget!==null){if(f.age>.85)this.slam(f);this.integrate(f,dt);continue;}
+   if(f.grabTarget!==null){if(f.spinGrabTarget!==null&&f.age>.42)this.spinThrow(f);else if(f.age>.85)this.slam(f);this.integrate(f,dt);continue;}
    if(ATTACKS[f.state]){let a=ATTACKS[f.state];if(!f.attackHit&&f.age>=a.wind){f.attackHit=true;let candidates=this.fighters.filter(q=>q!==f&&!q.ko&&q.grabbedBy===null&&d(q,f)<=a.range);candidates.sort((x,y)=>d(f,x)-d(f,y));for(let q of candidates){let m=d(f,q)||1,dot=((q.x-f.x)*Math.sin(f.yaw)+(q.z-f.z)*Math.cos(f.yaw))/m;if(dot<.15)continue;let dmg=a.damage*(f.combo>=2?1.12:1)*(f.rageAttack?1.30:1);this.hit(q,f,dmg,a.zone,a.push,a.down||f.rageAttack,'melee');break;}this.emit('swing',{id:f.id,attack:f.state});}}
    if(f.state==='throw'&&!f.attackHit&&f.age>=.18){f.attackHit=true;this.throwItem(f);}
    if(f.state==='dodge'){f.vx=f.dodgeX*8.7;f.vz=f.dodgeZ*8.7;}

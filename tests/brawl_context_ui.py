@@ -34,15 +34,16 @@ with sync_playwright() as pw:
         page.evaluate("""() => {let s=brawl.sim,p=s.fighters[0],q=s.fighters[1];p.x=0;p.z=0;q.x=1.3;q.z=0;s.fighters[2].x=8;s.fighters[3].x=-8;s.dizzy(q,2.5);q.inv=0;}""")
         scene(page)
         assert page.locator('.dizzy-stars').nth(1).is_visible()
-        assert not page.locator('[data-action="grab"]').evaluate('(e) => e.classList.contains("unavailable")')
+        assert page.locator('.combat.grab').get_attribute('data-action') == 'spin'
+        assert page.locator('#grabLabel').inner_text() == 'SPIN'
+        assert not page.locator('.combat.grab').evaluate('(e) => e.classList.contains("unavailable")')
         page.screenshot(path=str(OUT / f'dizzy-grab-{label}.png'))
-        page.locator('[data-action="grab"]').tap() if mobile else page.locator('[data-action="grab"]').click()
+        page.locator('.combat.grab').tap() if mobile else page.locator('.combat.grab').click()
         scene(page)
         assert page.evaluate('brawl.sim.fighters[0].grabTarget') == 1
-        assert page.locator('[data-world-action="spin"]').is_visible()
-        assert page.locator('#grabLabel').inner_text() == 'SLAM'
+        assert page.locator('#grabLabel').inner_text() == 'SPIN'
         page.screenshot(path=str(OUT / f'spin-choice-{label}.png'))
-        page.locator('[data-world-action="spin"]').tap() if mobile else page.locator('[data-world-action="spin"]').click()
+        page.evaluate("""() => {for(let i=0;i<28;i++)brawl.sim.step(1/60)}""")
         assert page.evaluate('brawl.sim.fighters[0].state') == 'spin'
         page.evaluate("""() => {let s=brawl.sim,p=s.fighters[0],q=s.fighters[1];s.state(p,'idle');p.held=null;q.x=7;q.z=0;let o=s.items[0];o.x=p.x+.5;o.z=p.z;o.y=0;o.held=null;o.flying=false;o.broken=false;o.slipUntil=0;}""")
         scene(page)

@@ -189,13 +189,14 @@ class BrawlScene{
   this.shadow(f.x,f.z,1.55,f.ko?.15:.65);
   if(f.cloud)return;
   let bob=f.speed>.2?Math.abs(Math.sin(f.walk))*.075:Math.sin(this.time*3.4+f.id)*.022;
-   let tilt=0,h=-.02+bob;if(prone){tilt=-Math.PI/2;h=.3;}else if(getup){let q=smooth(0,f.duration||.5,f.age);tilt=-Math.PI/2*(1-q);h=.3*(1-q);}else if(duck){tilt=.50;h=-.4;}else if(f.state==='hit'){tilt=-.22*Math.sin(f.age/.24*Math.PI);}else if(f.state==='dizzy'){tilt=Math.sin(this.time*6+f.id)*.24;h=Math.sin(this.time*9+f.id)*.07;}else if(f.state==='shoved'){tilt=-.38*Math.sin(Math.min(1,f.age/.48)*Math.PI);h=-.10;}else if(f.state==='push'){tilt=.16*Math.sin(Math.min(1,f.age/.42)*Math.PI);}else if(f.state==='heavy'){tilt=-.16*Math.sin(p*Math.PI*2);}else if(f.state==='grabbed'){tilt=-.13;h=.1;}
+   let tilt=0,h=-.02+bob;if(prone){tilt=-Math.PI/2;h=.3;}else if(getup){let q=smooth(0,f.duration||.5,f.age);tilt=-Math.PI/2*(1-q);h=.3*(1-q);}else if(duck){tilt=.50;h=-.4;}else if(f.state==='hit'){tilt=-.22*Math.sin(f.age/.24*Math.PI);}else if(f.state==='bossGrabbed'){tilt=-.34+Math.sin(this.time*14)*.14;h=.12;}else if(f.state==='bossThrown'){tilt=-1.05+Math.sin(f.age*12)*.32;h=.02;}else if(f.state==='dizzy'){tilt=Math.sin(this.time*6+f.id)*.24;h=Math.sin(this.time*9+f.id)*.07;}else if(f.state==='shoved'){tilt=-.38*Math.sin(Math.min(1,f.age/.48)*Math.PI);h=-.10;}else if(f.state==='push'){tilt=.16*Math.sin(Math.min(1,f.age/.42)*Math.PI);}else if(f.state==='heavy'){tilt=-.16*Math.sin(p*Math.PI*2);}else if(f.state==='grabbed'){tilt=-.13;h=.1;}
   root=M4.mul(root,M4.trs([0,h,0],[tilt,0,0]));let opts={tint:[dim,dim,dim]};R.draw(c.body,root,opts);this.drawPart(M.plane,root,[-.20,1.62,.274],[0,0,0],[.23,.23,1],{texture:this.texture.logo,unlit:true});
   // Hierarchical shoulders / elbows / wrists. No camera rotation is applied to hands.
   let walk=Math.sin(f.walk)*Math.min(1,f.speed/2.3),still=f.speed<.25;
   for(let side of[-1,1]){let shoulderX=-.36+walk*.22*side,elbowX=-1.20,shoulderZ=-side*.13,wrist=0;
    if(f.held!==null||f.state==='pickup'||f.state==='throw'){shoulderX=f.state==='throw'?-.6-Math.sin(Math.min(1,f.age/.30)*Math.PI)*1.3:-1.1;elbowX=-.72;shoulderZ=-side*.25;}
     if(f.state==='grabbing'||f.state==='groundGrabbing'||f.state==='grabbed'||f.state==='slam'){shoulderX=f.state==='groundGrabbing'?-1.65:-1.25;elbowX=-.48;shoulderZ=-side*.14;}
+    if(f.state==='bossGrabbed'||f.state==='bossThrown'){shoulderX=-.65+Math.sin(this.time*13+side)*.36;elbowX=-.28;shoulderZ=side*.65;}
     if(f.state==='push'){shoulderX=-1.75;elbowX=-.24;shoulderZ=-side*.09;}
    if(f.state==='dizzy'){shoulderX=-.8+Math.sin(this.time*8+side)*.25;elbowX=-.35;shoulderZ=side*.58;}
    if(f.blocking){shoulderX=-1.25;elbowX=-1.45;shoulderZ=side*.18;}
@@ -203,7 +204,7 @@ class BrawlScene{
    if(f.state==='counter'){shoulderX=-1.12;elbowX=-1.22;shoulderZ=side*.21;}
    if(strike&&!['kick','heavyKick'].includes(f.state)&&side===f.attackSide){let t=clamp((f.age-strike.wind*.45)/(strike.wind*.55+strike.active*.3),0,1),recover=smooth(strike.wind+strike.active,strike.wind+strike.active+strike.recovery,f.age);let reach=Math.sin(t*Math.PI/2)*(1-recover);shoulderX=lerp(.35,-1.63,reach);elbowX=lerp(-1.45,-.10,reach);shoulderZ=side*(f.state==='heavy'?-.35:-.05);wrist=-.3*reach;}
    if(prone){shoulderX=.3;elbowX=-.5;shoulderZ=-side*.5;}
-   if(sim.boss&&!f.ko&&!getup){shoulderX=side===1?-1.32:-1.07;elbowX=side===1?-.60:-.95;shoulderZ=-side*.12;}
+   if(sim.boss&&!f.ko&&!getup&&!['bossGrabbed','bossThrown','down'].includes(f.state)){shoulderX=side===1?-1.32:-1.07;elbowX=side===1?-.60:-.95;shoulderZ=-side*.12;}
    let s=M4.mul(root,M4.trs([side*.46,1.72,0],[shoulderX,0,shoulderZ]));R.draw(c.upper,s,opts);let e=M4.mul(s,M4.trs([0,-.47,0],[elbowX,0,0]));R.draw(c.fore,e,opts);this.drawPart(c.fist,e,[0,-.49,0],[wrist,0,0],[1,1,1],opts);
    let hip=-walk*side*.65,knee=Math.max(0,walk*side)*.65+.08;if(f.leg>=30&&side===-1){hip*=.6;knee+=.20;}if(['kick','heavyKick'].includes(f.state)&&side===1){let a=BrawlSim.ATTACKS[f.state],reach=Math.sin(clamp(f.age/(a.wind+a.active),0,1)*Math.PI/2)*(1-smooth(a.wind+a.active,a.wind+a.active+a.recovery,f.age));hip=-reach*(f.state==='heavyKick'?1.95:1.50);knee=.10+Math.sin(f.age/a.wind*Math.PI)*.35*(1-reach);}if(duck){hip=-.7;knee=1.05;}if(prone){hip=-.1+side*.10;knee=.16;}
    let hm=M4.mul(root,M4.trs([side*.22,.97,0],[hip,0,-side*.04]));R.draw(c.thigh,hm,opts);let km=M4.mul(hm,M4.trs([0,-.48,0],[knee,0,0]));R.draw(c.shin,km,opts);this.drawPart(c.shoe,km,[0,-.47,.02],[0,0,0],[1,1,1],opts);
@@ -312,7 +313,8 @@ class BrawlScene{
   if(e.type==='bossLand'){this.shake=Math.max(this.shake,.40);this.effects.push({kind:'impact',x:e.x,y:.8,z:e.z,life:.45,max:.45});}
   if(e.type==='bossSlam'){this.shake=Math.max(this.shake,.36);this.effects.push({kind:'impact',x:e.x,y:.6,z:e.z,life:.36,max:.36});for(let i=0;i<14;i++)this.effects.push({kind:'chip',x:e.x,y:.2,z:e.z,vx:Math.sin(i*6.28/14)*6,vy:2+this.random()*3,vz:Math.cos(i*6.28/14)*6,life:.65,max:.65,color:'#e9b66c',size:.055});}
   if(e.type==='bossCollapse'||e.type==='bossFinalFall'){this.shake=Math.max(this.shake,.28);for(let i=0;i<18;i++)this.effects.push({kind:'chip',x:sim.boss.x,y:1.7,z:sim.boss.z,vx:(this.random()-.5)*7,vy:1+this.random()*6,vz:(this.random()-.5)*7,life:.6+this.random()*.5,max:1,color:i%2?'#e2b963':'#76eaff',size:.035+this.random()*.04});}
-  if(e.type==='laserShot'){let f=sim.fighters[e.id],muzzle=M4.point(M4.trs([f.x,f.y,f.z],[0,f.yaw,0]),[.53,1.28,1.65]);this.effects.push({kind:'beam',a:muzzle,b:[e.toX,e.blocked?1.45:2.0,e.toZ+(e.blocked?0:1.1)],color:e.heavy?'#d4faff':'#6feaff',width:e.heavy?.085:.045,life:.22,max:.22});if(e.blocked)this.effects.push({kind:'impact',x:e.toX,y:1.45,z:e.toZ,life:.15,max:.15});}
+  if(e.type==='laserShot'){let f=sim.fighters[e.id],muzzle=M4.point(M4.trs([f.x,f.y,f.z],[0,f.yaw,0]),[.53,1.28,1.65]);this.effects.push({kind:'beam',a:muzzle,b:[e.toX,e.blocked?1.45:e.outOfRange?1.55:2.0,e.toZ],color:e.heavy?'#d4faff':'#6feaff',width:e.heavy?.085:.045,life:.22,max:.22});if(e.blocked)this.effects.push({kind:'impact',x:e.toX,y:1.45,z:e.toZ,life:.15,max:.15});}
+  if(e.type==='bossThrowLand'){this.shake=Math.max(this.shake,.11);this.effects.push({kind:'impact',x:e.x,y:.25,z:e.z,life:.24,max:.24});}
   if(e.type==='bossLaser')this.effects.push({kind:'beam',a:this.bossMuzzle||[e.x,1.7,e.z+1.8],b:[e.toX,1.35,e.toZ],color:'#ff9d43',width:.13,life:.31,max:.31});
   if(e.type==='ko'){let f=sim.fighters[e.id];if(sim.cloud.active)this.pops.push({id:e.id,angle:this.random()*Math.PI*2,life:1.15,max:1.15,rotate:.50});}
   if(e.type==='break')for(let i=0;i<15;i++)this.effects.push({kind:'chip',x:e.x,y:.7,z:e.z,vx:(this.random()-.5)*5,vy:2+this.random()*4,vz:(this.random()-.5)*5,life:1,max:1,color:'#bd9260',size:.08});

@@ -5,6 +5,8 @@ const Sim=BrawlSim.Sim;
 const cap=(n,a,b)=>Math.max(a,Math.min(b,n));
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const health=[280,340,400,460];
+const crewLaserRange=7.5;
+BrawlSim.BOSS_LASER_RANGE=crewLaserRange;
 // Shared by collision, laser cover and the rendered boss-only arena.
 const arena={
  cover:[{x:-4.4,z:-1.7,w:1.45,d:2.3},{x:4.4,z:-1.7,w:1.45,d:2.3},
@@ -83,10 +85,13 @@ Sim.prototype.bossAction=function(id,type,move){
 
 Sim.prototype.bossFire=function(f,heavy=false){
  let b=this.boss;if(!b||b.phase!=='battle'||f.ko)return;
- let block=segmentCover(f,b),damage=heavy?31:f.id===this.selected?11:4,applied=block?0:Math.min(b.hp,damage);
+ let r=distance(f,b),outOfRange=r>crewLaserRange;
+ let end=outOfRange?{x:f.x+(b.x-f.x)*crewLaserRange/r,z:f.z+(b.z-f.z)*crewLaserRange/r}:b;
+ let block=segmentCover(f,end),damage=heavy?31:f.id===this.selected?11:4;
+ let applied=block||outOfRange?0:Math.min(b.hp,damage);
  f.bossShots++;f.bossDamage+=applied;
- this.emit('laserShot',{id:f.id,x:f.x,z:f.z,toX:block?.x??b.x,toZ:block?.z??b.z,heavy,damage:applied,blocked:!!block});
- if(block)return;
+ this.emit('laserShot',{id:f.id,x:f.x,z:f.z,toX:block?.x??end.x,toZ:block?.z??end.z,heavy,damage:applied,blocked:!!block,outOfRange});
+ if(block||outOfRange)return;
  b.hp=Math.max(0,b.hp-damage);
  if(b.hp<=0){
   b.phase=b.tier<3?'resurrect':'dead';b.age=0;b.attack='idle';b.grabbed=null;
@@ -194,8 +199,13 @@ Sim.prototype.bossStep=function(dt){
   if(f.y>floorHeight(f.x,f.z)+.02||f.vy>0){
    f.y+=f.vy*dt;f.vy-=18*dt;
    let ground=floorHeight(f.x,f.z);
-   if(f.y<=ground){f.y=ground;f.vy=0;f.vx*=.35;f.vz*=.35;this.emit('bossThrowLand',{id:f.id,x:f.x,z:f.z});}
+   if(f.y<=ground){f.y=ground;f.vy=0;f.vx*=.35;f.vz*=.35;pushOut(f,.40);if(f.state==='bossThrown'){this.state(f,'down',.60);f.inv=Math.max(f.inv,.70);}this.emit('bossThrowLand',{id:f.id,x:f.x,z:f.z});}
    else{f.x=cap(f.x+f.vx*dt,-this.bounds.x,this.bounds.x);f.z=cap(f.z+f.vz*dt,-this.bounds.z,this.bounds.z);continue;}
+  }
+  if(f.state==='down'||f.state==='getup'){
+   if(f.age>=f.duration)this.state(f,f.state==='down'?'getup':'idle',f.state==='down'?.52:0);
+   f.vx*=Math.exp(-8*dt);f.vz*=Math.exp(-8*dt);f.y=floorHeight(f.x,f.z);
+   continue;
   }
   if(f.state==='hit'&&f.age>=.36||f.state==='dodge'&&f.age>=.40)this.state(f,'idle');
   f.stamina=cap(f.stamina+21*dt,0,100);
@@ -246,12 +256,12 @@ Sim.prototype.bossStep=function(dt){
   b.cooldown-=dt;
   if(b.cooldown<=0){
    let living=this.fighters.filter(f=>!f.ko);
-   let near=living.slice().sort((a,c)=>distance(a,b)-distance(c,b))[0];
+   let near=living.filter(f=>f.inv<=0).sort((a,c)=>distance(a,b)-distance(c,b))[0];
    let crowded=living.filter(f=>distance(f,b)<5.1).length;
    if(crowded>=2&&this.random()<.62){
     b.attack='slamWind';b.attackAge=0;b.attackSerial++;b.targetIds=[];
     this.emit('bossSlamWind',{x:b.x,z:b.z});
-   }else if(near&&distance(near,b)<4.15&&this.random()<.55){
+   }else if(near&&distance(near,b)<5.2&&this.random()<.82){
     b.attack='claw';b.attackAge=0;b.grabbed=null;b.targetIds=[near.id];
     b.attackSerial++;
     this.emit('bossClawWind',{id:near.id});
@@ -291,7 +301,7 @@ Sim.prototype.bossStep=function(dt){
    b.clawOpen=.85;
    if(b.attackAge>=.53&&b.grabbed===null){
     let target=this.fighters[b.targetIds[0]];
-    if(target&&!target.ko&&target.inv<=0&&distance(target,b)<4.25){
+    if(target&&!target.ko&&target.inv<=0&&distance(target,b)<4.6){
      b.grabbed=target.id;target.grabbedBy=-1;this.state(target,'bossGrabbed',1.0);
      this.emit('bossGrab',{id:target.id});
     }else b.grabbed=-1;
@@ -299,8 +309,9 @@ Sim.prototype.bossStep=function(dt){
    if(b.attackAge>=1.22){
     if(b.grabbed>=0){let target=this.fighters[b.grabbed];
      target.grabbedBy=null;target.y=1.65;
-     target.vx=-Math.sin(b.yaw)*5.5;target.vz=-Math.cos(b.yaw)*5.5;target.vy=1.5;
+     target.vx=-Math.sin(b.yaw)*12.5;target.vz=-Math.cos(b.yaw)*12.5;target.vy=5.5;
      target.inv=0;this.bossHitPlayer(target,34+b.tier*5,'claw');
+     if(!target.ko)this.state(target,'bossThrown');
      this.emit('bossThrow',{id:target.id});}
     b.attack='idle';b.cooldown=2.25;b.grabbed=null;
    }

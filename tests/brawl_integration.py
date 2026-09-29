@@ -72,12 +72,22 @@ with sync_playwright() as pw:
  check('combo_heavy_punch',True)
 
  start();target(1.1)
- page.evaluate("() => {let q=brawl.sim.fighters[1];brawl.sim.dizzy(q,2.2);q.inv=0;brawl.scene.render(brawl.sim,0,'playing');brawl.worldHUD(0);}")
- page.click('[data-action="grab"]')
+ page.evaluate("() => {let q=brawl.sim.fighters[1];brawl.sim.dizzy(q,2.2);q.inv=0;brawl.scene.render(brawl.sim,0,'playing');brawl.updateHUD();brawl.worldHUD(0);}")
+ assert page.locator('.combat.grab').get_attribute('data-action')=='spin'
+ page.keyboard.press('l')
  assert page.evaluate('brawl.sim.fighters[0].grabTarget')==1
- page.click('[data-action="grab"]')
+ page.keyboard.press('l')
  assert page.evaluate('brawl.sim.fighters[1].hp')<100
  check('grab_and_slam',{'targetHp':page.evaluate('brawl.sim.fighters[1].hp')})
+
+ start();target(1.1)
+ page.evaluate("() => {let q=brawl.sim.fighters[1];brawl.sim.dizzy(q,2.2);q.inv=0;brawl.scene.render(brawl.sim,0,'playing');brawl.updateHUD();brawl.worldHUD(0);}")
+ page.click('[data-action="spin"]')
+ assert page.evaluate('brawl.sim.fighters[0].grabTarget')==1
+ page.evaluate('advanceTime(500)')
+ assert page.evaluate('brawl.sim.fighters[0].state')=='spin'
+ assert page.evaluate('brawl.sim.fighters[1].hp')<100
+ check('spin_from_dizzy',True)
 
  start()
  page.click('[data-action="dodge"]')

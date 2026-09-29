@@ -17,8 +17,8 @@ const SHOWCASES=[
  {title:'HEAVY KICK',description:'Land three hits on the same rival, mostly kicks. Kick becomes Heavy Kick for 3.5 seconds.',mobile:'THREE HITS → TAP HEAVY KICK',desktop:'THREE HITS → K'},
  {title:'DODGE',description:'Move out of reach and gain a brief protected moment. Hold a direction to choose where to dodge.',mobile:'TAP DODGE + LEFT STICK',desktop:'SPACE + MOVE'},
  {title:'AUTO BLOCK',description:'Stop moving for a moment and your fighter guards automatically. Blocking reduces melee damage but uses stamina.',mobile:'RELEASE LEFT STICK',desktop:'RELEASE MOVEMENT KEYS'},
- {title:'DIZZY GRAB',description:'When a rival runs out of stamina, stars circle their head. Move close and tap Grab over them; tap Slam to finish.',mobile:'TAP GRAB OVER DIZZY RIVAL',desktop:'L, THEN L'},
- {title:'SPIN THROW',description:'Once you grab a dizzy rival, choose Spin over them instead of Slam to send them farther away.',mobile:'TAP SPIN OVER GRABBED RIVAL',desktop:'L, THEN Q'},
+ {title:'DIZZY GRAB',description:'When a rival runs out of stamina, stars circle their head. Move close and press L to grab them, then L again to slam.',mobile:'GRAB CHANGES TO SPIN NEAR DIZZY RIVAL',desktop:'L, THEN L'},
+ {title:'SPIN THROW',description:'Near a dizzy rival, the fixed Grab button becomes Spin. One tap grabs, winds up and spins them away. Q also performs the move.',mobile:'TAP SPIN NEAR DIZZY RIVAL',desktop:'Q NEAR DIZZY RIVAL'},
  {title:'PICK / THROW',description:'Move beside a prop and tap Pick Up over the object. The same world action becomes Throw while you hold it.',mobile:'TAP PICK UP OVER OBJECT',desktop:'E, THEN E'},
  {title:'AUTO PUSH / GROUND GRAB',description:'Three close hits from one rival trigger an automatic push. With more than double their HP, you knock them down and briefly open a ground grab.',mobile:'AUTOMATIC PUSH → TAP GROUND GRAB',desktop:'AUTOMATIC PUSH → L'}
 ];
@@ -107,7 +107,7 @@ class BrawlApp{
    if(e.type==='perfectCounter'){this.makePop('COUNTER!',e.id,'#b4e2ef');if(e.id===this.selected)this.toast('PERFECT COUNTER',1.3);}
     if(e.type==='autoPush'){this.makePop(e.strong?'DOWN!':'PUSH!',e.target,'#f9db75');if(e.id===this.selected)this.toast(e.strong?'THEY ARE DOWN · GRAB THEM NOW':'AUTO PUSH · SPACE TO BREATHE',1.7);}
    if(e.type==='pickup'&&e.id===this.selected)this.toast(BrawlSim.ITEMS[e.item].label+' IN HAND · TAP THROW',1.1);
-    if(e.type==='grab'&&e.id===this.selected)this.toast('GRABBED · CHOOSE SLAM OR SPIN',1.2);
+    if(e.type==='grab'&&e.id===this.selected)this.toast(this.sim.fighters[this.selected].spinGrabTarget!==null?'SPIN THROW WINDUP':'GRABBED · CHOOSE SLAM OR SPIN',1.2);
    if(e.type==='spin'&&e.id===this.selected)this.toast('SPIN THROW!',1.0);
    if(e.type==='escapeGrab'&&e.id===this.selected)this.toast('BROKE FREE!',1.2);
    if(e.type==='slip')this.makePop('SLIP!',e.id,'#d9e68a');
@@ -144,7 +144,9 @@ class BrawlApp{
    $('rageBar').style.width='0%';$('rageLabel').textContent='LASER CREW';$('heldItem').textContent=p.ko?'WEAPON LOST':'LASER CARBINE READY';$('revenge').textContent='SCARAT TARGETS THE WHOLE CREW';
    $('objective').textContent=s.fighters.filter(f=>!f.ko).length+' CREW ALIVE · DEFEAT ALL 4 STAGES';$('cloudBadge').hidden=true;
    $('spectator').hidden=!(p.ko&&!s.finished);
-   $('punchLabel').textContent='FIRE';$('kickLabel').textContent='POWER';$('actionGuide').textContent='J FIRE · K POWER SHOT · DODGE THE CANNON';
+   let laserFar=Math.hypot(p.x-b.x,p.z-b.z)>BrawlSim.BOSS_LASER_RANGE;
+   document.body.classList.toggle('laser-out-of-range',laserFar);
+   $('punchLabel').textContent='FIRE';$('kickLabel').textContent='POWER';$('actionGuide').textContent=laserFar?'MOVE WITHIN 7.5m TO HIT SCARAT':'J FIRE · K POWER SHOT · DODGE THE CANNON';
    document.querySelector('.keyboardhint').textContent='WASD MOVE · J FIRE · K POWER SHOT · SPACE DODGE · ESC PAUSE';
    document.querySelectorAll('[data-action]').forEach(button=>{let action=button.dataset.action,disabled=p.ko||b.phase!=='battle'||p.weaponCooldown>0||(action==='kick'&&p.stamina<25)||(action==='dodge'&&p.stamina<18);button.classList.toggle('unavailable',!!disabled);button.classList.remove('charged');button.setAttribute('aria-label',action==='punch'?'Fire laser':action==='kick'?'Power laser shot':'Dodge');});
    this.feed=this.feed.filter(f=>f.until>this.uiClock);$('combatfeed').innerHTML=this.feed.map(f=>'<div class="feedline">'+f.text+'</div>').join('');
@@ -152,15 +154,21 @@ class BrawlApp{
    $('perf').textContent=`${Math.round(this.fps)} FPS / ${this.scene.R.draws} DRAWS / ${Math.round(this.scene.R.tris/1000)}k TRI / DPR ${this.scene.R.pixelRatio.toFixed(2)}`;
    return;
   }
-  $('clock').textContent=this.format(this.mode==='score'?Math.max(0,90-s.time):s.time);$('condition').textContent=p.dizzyUntil>s.time?'DIZZY':p.blocking?'AUTO BLOCK':s.condition(p);$('staminaValue').textContent=Math.round(p.stamina);$('staminaBar').style.width=p.stamina+'%';$('rageBar').style.width=p.rage+'%';$('rageLabel').textContent='RAGE '+Math.round(p.rage)+'%';$('heldItem').textContent=p.held!==null?BrawlSim.ITEMS[s.items[p.held].type].label+' IN HAND':'HANDS FREE';let r=Math.max(...p.revenge),ri=p.revenge.indexOf(r);$('revenge').textContent=r>0?'GRUDGE: '+BrawlSim.NAMES[ri]:'NO GRUDGES. YET.';
+  document.body.classList.remove('laser-out-of-range');$('clock').textContent=this.format(this.mode==='score'?Math.max(0,90-s.time):s.time);$('condition').textContent=p.dizzyUntil>s.time?'DIZZY':p.blocking?'AUTO BLOCK':s.condition(p);$('staminaValue').textContent=Math.round(p.stamina);$('staminaBar').style.width=p.stamina+'%';$('rageBar').style.width=p.rage+'%';$('rageLabel').textContent='RAGE '+Math.round(p.rage)+'%';$('heldItem').textContent=p.held!==null?BrawlSim.ITEMS[s.items[p.held].type].label+' IN HAND':'HANDS FREE';let r=Math.max(...p.revenge),ri=p.revenge.indexOf(r);$('revenge').textContent=r>0?'GRUDGE: '+BrawlSim.NAMES[ri]:'NO GRUDGES. YET.';
    let ready=p.comboUntil>s.time?p.comboReady:null,usable=ready&&p.stamina>=BrawlSim.ATTACKS[ready].cost;$('punchLabel').textContent=ready==='heavy'&&usable?'HEAVY PUNCH':'PUNCH';$('kickLabel').textContent=ready==='heavyKick'&&usable?'HEAVY KICK':'KICK';for(let [type,upgrade]of[['punch','heavy'],['kick','heavyKick']]){let b=$('actions').querySelector(`[data-action="${type}"]`),charged=ready===upgrade&&usable;b.classList.toggle('charged',charged);b.setAttribute('aria-label',charged?(type==='punch'?'Heavy Punch':'Heavy Kick')+' ready for '+Math.ceil(p.comboUntil-s.time)+' seconds':type.toUpperCase());}
    let near=s.grabCandidate(p),item=p.held===null?s.nearestItem(p):null,closeItem=item&&Math.hypot(item.x-p.x,item.z-p.z)<=1.9,hits=p.comboHits.filter(h=>s.time-h.time<=3.2).length;
-   $('grabLabel').textContent=p.grabTarget!==null?'SLAM':p.grabbedBy!==null?'ESCAPE':'GRAB';
+   let dizzyTarget=s.fighters.some(q=>q!==p&&!q.ko&&q.grabbedBy===null&&q.dizzyUntil>s.time&&['dizzy','down'].includes(q.state));
+   let spinReady=p.grabbedBy===null&&(p.spinGrabTarget!==null||p.grabTarget===null&&dizzyTarget),grabButton=$('actions').querySelector('.combat.grab');
+   grabButton.dataset.action=spinReady?'spin':'grab';grabButton.classList.toggle('spin-ready',spinReady);
+   grabButton.querySelector('use').setAttribute('href',spinReady?'#i-spin':'#i-grab');
+   grabButton.querySelector('kbd').textContent=spinReady?'Q':'L';
+   grabButton.setAttribute('aria-label',spinReady?'Spin dizzy rival, Q':p.grabTarget!==null?'Slam grabbed rival, L':p.grabbedBy!==null?'Escape grab, L':'Grab dizzy rival, L');
+   $('grabLabel').textContent=spinReady?'SPIN':p.grabTarget!==null?'SLAM':p.grabbedBy!==null?'ESCAPE':'GRAB';
    $('pickLabel').textContent=p.held!==null?'THROW':'PICK UP';
-   $('actionGuide').textContent=p.grabbedBy!==null?'TAP GRAB TO ESCAPE':p.grabTarget!==null?'TAP GRAB TO SLAM OR SPIN NEAR THE RIVAL':near?'TAP GRAB FOR THE DIZZY RIVAL':p.held!==null?'TAP THROW':closeItem?'TAP PICK UP':ready?usable?(ready==='heavy'?'HEAVY PUNCH':'HEAVY KICK')+' READY · TAP '+(ready==='heavy'?'PUNCH':'KICK')+' · '+Math.ceil(p.comboUntil-s.time)+'s':'COMBO READY · REST FOR HEAVY':p.blocking?'AUTO BLOCKING · MOVE TO ATTACK':hits?`COMBO ${hits}/3 · LAND ${3-hits} MORE HIT${3-hits===1?'':'S'}`:'3 HITS → HEAVY · EMPTY STAMINA → GRAB · NEAR PROP → PICK UP';
+   $('actionGuide').textContent=p.grabbedBy!==null?'TAP GRAB TO ESCAPE':p.spinGrabTarget!==null?'SPIN THROW WINDUP':p.grabTarget!==null?'TAP SLAM OR SPIN NEAR THE RIVAL':near?'TAP SPIN FOR THE DIZZY RIVAL':dizzyTarget?'MOVE CLOSER TO SPIN THE DIZZY RIVAL':p.held!==null?'TAP THROW':closeItem?'TAP PICK UP':ready?usable?(ready==='heavy'?'HEAVY PUNCH':'HEAVY KICK')+' READY · TAP '+(ready==='heavy'?'PUNCH':'KICK')+' · '+Math.ceil(p.comboUntil-s.time)+'s':'COMBO READY · REST FOR HEAVY':p.blocking?'AUTO BLOCKING · MOVE TO ATTACK':hits?`COMBO ${hits}/3 · LAND ${3-hits} MORE HIT${3-hits===1?'':'S'}`:'3 HITS → HEAVY · EMPTY STAMINA → SPIN · NEAR PROP → PICK UP';
    $('cloudBadge').hidden=!s.cloud.active;$('spectator').hidden=!(p.ko&&this.mode==='last'&&!s.finished);
   if(this.mode==='last')$('objective').textContent=s.fighters.filter(f=>!f.ko).length+' STILL STANDING / '+p.kos+' ELIMINATIONS';else if(this.mode==='score')$('objective').textContent='YOU: '+Math.round(p.score)+' PTS / LEADER: '+s.rank()[0].name;else $('objective').textContent='CROWN: '+Math.floor(s.crown.time[this.selected])+'/45s / '+(s.crown.holder===null?'ON THE GROUND':BrawlSim.NAMES[s.crown.holder]);
-   document.querySelectorAll('[data-action]').forEach(b=>{let a=b.dataset.action,actual=usable&&a==='punch'&&ready==='heavy'?'heavy':usable&&a==='kick'&&ready==='heavyKick'?'heavyKick':a,c=BrawlSim.ATTACKS[actual];let disabled=a==='grab'?p.ko||!(p.grabbedBy!==null||p.grabTarget!==null||near&&p.stamina>=13&&s.canAct(p)):a==='pick'?p.ko||!(p.held!==null||closeItem&&s.canAct(p)):p.ko||!s.canAct(p)||p.held!==null||(c&&p.stamina<c.cost);b.classList.toggle('unavailable',!!disabled);let progress=p.state===actual&&p.duration?100*(1-p.age/p.duration):0;b.style.setProperty('--progress',Math.max(0,progress)+'%');});
+   document.querySelectorAll('[data-action]').forEach(b=>{let a=b.dataset.action,actual=usable&&a==='punch'&&ready==='heavy'?'heavy':usable&&a==='kick'&&ready==='heavyKick'?'heavyKick':a,c=BrawlSim.ATTACKS[actual];let disabled=a==='grab'||a==='spin'?p.ko||!(p.grabbedBy!==null||p.grabTarget!==null||near&&p.stamina>=13&&s.canAct(p)):a==='pick'?p.ko||!(p.held!==null||closeItem&&s.canAct(p)):p.ko||!s.canAct(p)||p.held!==null||(c&&p.stamina<c.cost);b.classList.toggle('unavailable',!!disabled);let progress=p.state===actual&&p.duration?100*(1-p.age/p.duration):0;b.style.setProperty('--progress',Math.max(0,progress)+'%');});
   this.feed=this.feed.filter(f=>f.until>this.uiClock);$('combatfeed').innerHTML=this.feed.map(f=>'<div class="feedline">'+f.text+'</div>').join('');if(this.uiClock>this.toastUntil)$('toast').classList.remove('on');$('perf').textContent=`${Math.round(this.fps)} FPS / ${this.scene.R.draws} DRAWS / ${Math.round(this.scene.R.tris/1000)}k TRI / DPR ${this.scene.R.pixelRatio.toFixed(2)}`;
  }
   worldHUD(dt){
@@ -188,7 +196,7 @@ class BrawlApp{
    let player=this.sim.fighters[this.selected],playing=this.state==='playing'&&!player.ko&&!this.sim.boss,held=player.grabTarget!==null?this.sim.fighters[player.grabTarget]:null,near=playing&&!held?this.sim.grabCandidate(player):null,target=held||near;
    let place=(button,point,label,dx=0,dy=-55)=>{let q=point&&R.project(point),visible=playing&&q?.visible;button.hidden=!visible;if(!visible)return;button.querySelector('b').textContent=label;button.setAttribute('aria-label',label);button.style.left=clamp(q.x+dx,40,innerWidth-40)+'px';button.style.top=clamp(q.y+dy,innerHeight<501?105:160,innerHeight-100)+'px';};
    let h=target?.renderHead||[target?.x||0,2.36,target?.z||0];
-   place(this.worldActions.spin,held&&player.grabbedBy===null?[h[0],h[1],h[2]]:null,'SPIN',39);
+   place(this.worldActions.spin,held&&player.grabbedBy===null&&player.spinGrabTarget===null?[h[0],h[1],h[2]]:null,'SPIN',39);
    if(target&&this.nameplates?.[target.id])this.nameplates[target.id].style.display='none';
   for(let p of this.pops){p.age+=dt;let q=R.project([p.x,p.y+p.age*1.6,p.z]);p.n.style.display=q.visible?'block':'none';p.n.style.left=q.x+'px';p.n.style.top=q.y+'px';p.n.style.opacity=Math.min(1,(p.max-p.age)*4);if(p.age>=p.max)p.n.remove();}this.pops=this.pops.filter(p=>p.age<p.max);
   for(let s of this.speeches){let f=this.sim.fighters[s.id],hp=f.renderHead||[f.x,2.36,f.z],q=R.project([hp[0],hp[1]+.85,hp[2]]);let rect=s.n.getBoundingClientRect(),mw=rect.width||180,mh=rect.height||100;let side=f.id%2?1:-1,x=clamp(q.x+side*(mw*.65+16),mw/2+9,innerWidth-mw/2-9),y=clamp(q.y-28,innerHeight<500?155:245,innerHeight-210);s.n.style.left=x+'px';s.n.style.top=y+'px';s.n.style.display=q.visible&&this.settings.captions?'block':'none';if(this.uiClock>s.until)s.n.remove();}this.speeches=this.speeches.filter(s=>this.uiClock<=s.until);
