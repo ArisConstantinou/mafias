@@ -14,6 +14,12 @@ class BrawlScene{
   const packed=await response.arrayBuffer();
   const raw=await new Response(new Blob([packed]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
   this.crimson=VoltBossAdapter.fromAsset(this.R,await GLBAsset.fromArrayBuffer(raw));
+  // The supplied shield was parented to the spine. Its original bind matrices
+  // remain valid; the skinned mount now follows the actual left hand joint.
+  const skeleton=this.crimson.asset;
+  skeleton.parents[skeleton.byName.get('Shield_Mount')]=skeleton.byName.get('Hand_L');
+  skeleton.nodes[skeleton.byName.get('Shield_Mount')].scale=[1.24,1.08,1];
+  this.crimson.rig.evaluate();
   this.bossTriangles=this.crimson.asset.stats.triangles;
   this.bossClipKey='';
  }
@@ -235,25 +241,50 @@ class BrawlScene{
   else if(boss.hitVisual>0){key='hit-'+boss.visualHitSerial;clip='Hit_Reaction';loop=false;}
   else if(boss.shieldPhase==='active'||boss.aimHold>0){key='guard';clip='Guard';}
   else if(boss.moving){key='run';clip='Run';}
-  // Shield_Mount is a skin joint on the imported Crimson rig. Swing the actual
-  // armoured panel around the left shoulder and lock it ahead of the helmet.
+  // Articulate the imported skin, with the shield gripped by Hand_L. The
+  // opposite sword arm, torso and both legs brace behind the left-arm guard.
   const rig=this.crimson.rig;
   rig.poseModifier=player=>{
-   player.poseBase=null;
    const phase=boss.shieldPhase,age=boss.shieldAge||0;
    const amount=phase==='active'?1:phase==='deploy'?smooth(0,.8,age):
     phase==='retract'?1-smooth(0,.7,age):0;
-   if(amount<=0)return;
-   const mount=player.asset.byName.get('Shield_Mount');
+   const bone=name=>player.asset.byName.get(name);
+   const original=[];
+   const pose=(name,rotation,weight=amount)=>{const i=bone(name);if(i===undefined)return;
+    original.push({index:i,translation:player.translations[i].slice(),rotation:player.rotations[i].slice()});
+    player.rotations[i]=Math3D.slerp(player.rotations[i],rotation,weight);
+   };
+   const q=(x,y=0,z=0)=>{const sx=Math.sin(x/2),cx=Math.cos(x/2),sy=Math.sin(y/2),cy=Math.cos(y/2),sz=Math.sin(z/2),cz=Math.cos(z/2);
+    return[sx*cy*cz+cx*sy*sz,cx*sy*cz-sx*cy*sz,cx*cy*sz+sx*sy*cz,cx*cy*cz-sx*sy*sz];};
+   const mount=bone('Shield_Mount');
    if(mount===undefined)return;
-   const t=player.translations[mount],base=t.slice();
-   player.poseBase={index:mount,translation:base,rotation:player.rotations[mount].slice()};
-   const swing=amount<.52?smooth(0,.52,amount):1;
-   const lock=amount>.52?smooth(.52,1,amount):0;
-   t[0]=base[0]-1.05*swing+.25*lock+.28*(boss.shieldHitVisual/.24);
-   t[1]=base[1]+.38*swing-.45*lock;
-   t[2]=base[2]+.38*swing+1.04*lock-.07*(boss.shieldHitVisual/.24);
-   player.rotations[mount]=Math3D.slerp(player.rotations[mount],[0,1,0,0],amount);
+   original.push({index:mount,translation:player.translations[mount].slice(),rotation:player.rotations[mount].slice()});
+   const shieldImpact=Math.min(1,(boss.shieldHitVisual||0)/.24);
+   player.translations[mount]=[-.08-.13*amount,-.03+.10*amount,.16+.11*amount-.05*shieldImpact];
+   player.rotations[mount]=Math3D.slerp(q(.05,Math.PI),q(1.28,Math.PI-.25,-.10),amount);
+   if(amount>0){
+    const cannon=boss.attack==='charge'||boss.attack==='beam';
+    const arm=amount*(cannon?.67:1);
+    pose('UpperArm_L',q(-.90+.12*shieldImpact,-.10,-.34),arm);
+    pose('Forearm_L',q(-1.00,.08,-.08),arm);
+    pose('Hand_L',q(.16,-.08,-.08),arm);
+    pose('UpperArm_R',q(-.32,.15,-.24),amount);
+    pose('Forearm_R',q(-.78),amount);
+    pose('Spine_Lower',q(.15,.08,-.06),amount);
+    pose('Spine_Upper',q(.28-.07*shieldImpact,.10,-.10),amount);
+    pose('Head',q(-.22,-.07),amount);
+    pose('Thigh_L',q(-.38,0,.22),amount);
+    pose('Shin_L',q(.80),amount);
+    pose('Foot_L',q(-.40),amount);
+    pose('Thigh_R',q(.12,0,-.22),amount);
+    pose('Shin_R',q(.50),amount);
+    pose('Foot_R',q(-.55),amount);
+    const pelvis=bone('Pelvis');
+    original.push({index:pelvis,translation:player.translations[pelvis].slice(),rotation:player.rotations[pelvis].slice()});
+    player.translations[pelvis][1]-=.22*amount;
+    player.translations[pelvis][2]+=.10*amount;
+   }
+   player.poseBase=original;
   };
   if(this.bossClipKey!==key){this.crimson.play(clip,{fade:this.bossClipKey?.12:0,loop});this.bossClipKey=key;}
   this.crimson.rig.speed=speed;
@@ -300,7 +331,7 @@ class BrawlScene{
   if(e.type==='bossCollapse'||e.type==='bossFinalFall'){this.shake=Math.max(this.shake,.28);for(let i=0;i<18;i++)this.effects.push({kind:'chip',x:sim.boss.x,y:1.7,z:sim.boss.z,vx:(this.random()-.5)*7,vy:1+this.random()*6,vz:(this.random()-.5)*7,life:.6+this.random()*.5,max:1,color:i%2?'#e2b963':'#76eaff',size:.035+this.random()*.04});}
   if(e.type==='bossShieldDeploy'||e.type==='bossShieldLocked'||e.type==='bossShieldRetract')this.effects.push({kind:'impact',x:sim.boss.x,y:2.3,z:sim.boss.z,life:.28,max:.28});
   if(e.type==='bossShieldHit'){const p=this.bossShield||[e.x,2.2,e.z];this.effects.push({kind:'impact',x:p[0],y:p[1],z:p[2],life:.24,max:.24});for(let i=0;i<6;i++)this.effects.push({kind:'chip',x:p[0],y:p[1],z:p[2],vx:(this.random()-.5)*3,vy:(this.random()-.5)*3,vz:(this.random()-.5)*3,life:.24,max:.24,color:'#98eaff',size:.035});}
-  if(e.type==='laserShot'){let f=sim.fighters[e.id],muzzle=M4.point(M4.trs([f.x,f.y,f.z],[0,f.yaw,0]),[.53,1.28,1.65]);const end=e.shieldBlock&&this.bossShield?this.bossShield:[e.toX,e.blocked?1.45:e.outOfRange?1.55:2.0,e.toZ];this.effects.push({kind:'beam',a:muzzle,b:end,color:e.heavy?'#d4faff':'#6feaff',width:e.heavy?.085:.045,life:.22,max:.22});if(e.blocked)this.effects.push({kind:'impact',x:e.toX,y:1.45,z:e.toZ,life:.15,max:.15});}
+  if(e.type==='laserShot'){let f=sim.fighters[e.id],muzzle=M4.point(M4.trs([f.x,f.y,f.z],[0,f.yaw,0]),[.53,1.28,1.65]);const end=e.shieldBlock&&this.bossShield?this.bossShield:[e.toX,e.blocked?1.45:e.outOfRange?1.55:2.0,e.toZ];this.effects.push({kind:'beam',a:muzzle,b:end,trackShield:!!e.shieldBlock,color:e.heavy?'#d4faff':'#6feaff',width:e.heavy?.085:.045,life:.22,max:.22});if(e.blocked)this.effects.push({kind:'impact',x:e.toX,y:1.45,z:e.toZ,life:.15,max:.15});}
   if(e.type==='bossThrowLand'){this.shake=Math.max(this.shake,.11);this.effects.push({kind:'impact',x:e.x,y:.25,z:e.z,life:.24,max:.24});}
   if(e.type==='bossLaser')this.effects.push({kind:'beam',a:this.bossMuzzle||[e.x,1.7,e.z+1.8],b:[e.toX,1.35,e.toZ],color:'#ff9d43',width:.13,life:.31,max:.31});
   if(e.type==='ko'){let f=sim.fighters[e.id];if(sim.cloud.active)this.pops.push({id:e.id,angle:this.random()*Math.PI*2,life:1.15,max:1.15,rotate:.50});}
@@ -338,7 +369,7 @@ class BrawlScene{
   }
   for(let e of this.effects){
    if(e.kind==='chip')R.draw(M.box,M4.trs([e.x,e.y,e.z],[e.life*7,e.life*9,0],[e.size,e.size,e.size]),{tint:rgb(e.color),alpha:Math.min(1,e.life*3)});
-   else if(e.kind==='beam')this.drawBeam(e.a,e.b,e.width,e.color,e.life/e.max);
+   else if(e.kind==='beam'){if(e.trackShield&&this.bossShield)e.b=this.bossShield;this.drawBeam(e.a,e.b,e.width,e.color,e.life/e.max);}
    else R.draw(M.plane,R.billboard([e.x,e.y,e.z],[1.12,1.12,1]),{texture:T.impact,unlit:true,blend:true,depthWrite:false,alpha:e.life/e.max});
   }
  }
