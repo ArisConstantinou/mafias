@@ -150,3 +150,21 @@ body.boss-mode .combat.grab,body.boss-mode .combat.pick{display:none!important}
 @media(max-height:500px){body:not(.boss-mode) .actions,body:not(.boss-mode).mobile-controls .actions{grid-template-columns:repeat(3,48px);gap:4px;bottom:calc(10px + var(--safe-b))}body:not(.boss-mode) .combat{width:48px;height:48px}body:not(.boss-mode) .combat svg{width:19px;height:19px}body:not(.boss-mode) .combat b{font-size:7px}}
 .viewer-link{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 12px;border:1px solid #e6cb64;border-radius:6px;color:#ffe178;font:800 12px system-ui;text-decoration:none;letter-spacing:.06em}
 .viewer-link:hover,.viewer-link:focus-visible{background:#e6cb64;color:#17333b}
+
+/* In portrait boss fights, keep health visible without covering Crimson or the crew. */
+@media(max-width:650px) and (min-height:501px){
+ body.boss-mode .crew{top:56px;left:8px;right:8px;gap:4px}
+ body.boss-mode .fightercard{height:39px;min-height:39px;padding:3px 3px 3px 30px;border-radius:5px;background:#142b35cf;overflow:hidden}
+ body.boss-mode .fightercard img{width:28px;height:33px;left:1px;top:3px}
+ body.boss-mode .fightercard b{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12px;line-height:14px}
+ body.boss-mode .fightercard .health{font-size:12px;line-height:13px;margin:0}
+ body.boss-mode .fightercard .hp{height:3px;margin:2px 0 0}
+ body.boss-mode .fightercard small,body.boss-mode .objective{display:none}
+ body.boss-mode .boss-hud{top:99px;width:calc(100vw - 16px);padding:5px 8px 4px;border-width:1px;border-radius:6px;background:#142b35df;box-shadow:0 3px 12px #071b2777}
+ body.boss-mode .boss-top{gap:4px;font-size:12px;line-height:14px;letter-spacing:.2px}
+ body.boss-mode .boss-top b{max-width:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ body.boss-mode .boss-top span{font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+ body.boss-mode .boss-health{height:7px;margin:4px 0 2px}
+ body.boss-mode .boss-hud small{font-size:12px;line-height:13px;letter-spacing:.2px}
+ body.boss-mode .boss-hud #bossShieldStatus{margin-left:6px}
+}
