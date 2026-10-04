@@ -32,6 +32,7 @@ brawl_assets={p.name:data(p,brawl_mime[p.suffix])
                  (p.suffix in ('.mp3','.png','.svg') and not p.name.startswith('mode-')))
               and p.name not in ('boss-scarat.mesh.gz','boss-scarat.rig.json')}
 brawl=(ROOT/'src'/'brawl'/'template.html').read_text(encoding='utf-8')
+brawl=brawl.replace('/*BRAWL_ICON*/',data(ROOT/'icon-192.png','image/png'))
 brawl=brawl.replace('/*BRAWL_STYLE*/',(ROOT/'src'/'brawl'/'style.css').read_text(encoding='utf-8'))
 brawl=brawl.replace('/*BRAWL_ASSETS*/','window.BRAWL_ASSETS='+json.dumps(brawl_assets,ensure_ascii=False,separators=(',',':'))+';')
 for name in ['engine','combat','boss','crimson-core','crimson-adapter','crew','world','app']:
@@ -42,6 +43,7 @@ print(f'Built {len(brawl.encode())/1024/1024:.2f} MB single-file brawl.html')
 
 # The model viewer uses the same embedded, playable assets and renderer.
 viewer=(ROOT/'src'/'brawl'/'viewer-template.html').read_text(encoding='utf-8')
+viewer=viewer.replace('/*BRAWL_ICON*/',data(ROOT/'icon-192.png','image/png'))
 viewer=viewer.replace('/*VIEWER_STYLE*/',(ROOT/'src'/'brawl'/'viewer-style.css').read_text(encoding='utf-8'))
 viewer=viewer.replace('/*BRAWL_ASSETS*/','window.BRAWL_ASSETS='+json.dumps(brawl_assets,ensure_ascii=False,separators=(',',':'))+';')
 for name in ['engine','combat','boss','crimson-core','crimson-adapter','crew','world','viewer']:
