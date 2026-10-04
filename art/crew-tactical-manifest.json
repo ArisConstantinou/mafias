@@ -1,0 +1,113 @@
+{
+  "source": "https://www.blender.org/download/demo-files/#assets",
+  "license": "CC0",
+  "library_sha256": "811F43ACCBB31A88266D932F8F5563B2D13586FCA0BA2693AAD1F5FE582B3515",
+  "bones": 52,
+  "meshes": 93,
+  "vertices": 13287,
+  "triangles": 25018,
+  "clips": [
+    {
+      "name": "Idle",
+      "duration": 2.4,
+      "loop": true
+    },
+    {
+      "name": "Walk",
+      "duration": 1.1,
+      "loop": true
+    },
+    {
+      "name": "Run",
+      "duration": 0.72,
+      "loop": true
+    },
+    {
+      "name": "LaserIdle",
+      "duration": 2.4,
+      "loop": true
+    },
+    {
+      "name": "LaserFire",
+      "duration": 0.36,
+      "loop": false
+    },
+    {
+      "name": "LaserRun",
+      "duration": 0.85,
+      "loop": true
+    },
+    {
+      "name": "Punch",
+      "duration": 0.43,
+      "loop": false
+    },
+    {
+      "name": "Heavy",
+      "duration": 0.92,
+      "loop": false
+    },
+    {
+      "name": "Kick",
+      "duration": 0.67,
+      "loop": false
+    },
+    {
+      "name": "HeavyKick",
+      "duration": 0.93,
+      "loop": false
+    },
+    {
+      "name": "Block",
+      "duration": 1.5,
+      "loop": true
+    },
+    {
+      "name": "Dodge",
+      "duration": 0.55,
+      "loop": false
+    },
+    {
+      "name": "Grab",
+      "duration": 1.0,
+      "loop": false
+    },
+    {
+      "name": "Spin",
+      "duration": 1.6,
+      "loop": true
+    },
+    {
+      "name": "Pickup",
+      "duration": 0.8,
+      "loop": false
+    },
+    {
+      "name": "Throw",
+      "duration": 0.8,
+      "loop": false
+    },
+    {
+      "name": "Hit",
+      "duration": 0.45,
+      "loop": false
+    },
+    {
+      "name": "Down",
+      "duration": 1,
+      "loop": true
+    },
+    {
+      "name": "GetUp",
+      "duration": 0.85,
+      "loop": false
+    },
+    {
+      "name": "Thrown",
+      "duration": 1,
+      "loop": true
+    }
+  ],
+  "glb_bytes": 2409788,
+  "gzip_bytes": 1145525
+}

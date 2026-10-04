@@ -28,13 +28,13 @@ brawl_mime={'.mp3':'audio/mpeg','.png':'image/png','.svg':'image/svg+xml',
             '.webp':'image/webp','.gz':'application/gzip','.json':'application/json'}
 brawl_assets={p.name:data(p,brawl_mime[p.suffix])
               for p in sorted((ROOT/'assets').iterdir())
-              if p.suffix in brawl_mime and (p.name.startswith('boss-') or
+              if p.suffix in brawl_mime and (p.name.startswith(('boss-','crew-')) or
                  (p.suffix in ('.mp3','.png','.svg') and not p.name.startswith('mode-')))
               and p.name not in ('boss-scarat.mesh.gz','boss-scarat.rig.json')}
 brawl=(ROOT/'src'/'brawl'/'template.html').read_text(encoding='utf-8')
 brawl=brawl.replace('/*BRAWL_STYLE*/',(ROOT/'src'/'brawl'/'style.css').read_text(encoding='utf-8'))
 brawl=brawl.replace('/*BRAWL_ASSETS*/','window.BRAWL_ASSETS='+json.dumps(brawl_assets,ensure_ascii=False,separators=(',',':'))+';')
-for name in ['engine','combat','boss','crimson-core','crimson-adapter','world','app']:
+for name in ['engine','combat','boss','crimson-core','crimson-adapter','crew','world','app']:
     source=ROOT/'src'/'engine.js' if name=='engine' else ROOT/'src'/'brawl'/f'{name}.js'
     brawl=brawl.replace('/*BRAWL_'+name.upper()+'*/',source.read_text(encoding='utf-8'))
 (ROOT/'brawl.html').write_bytes(brawl.encode('utf-8'))
@@ -44,7 +44,7 @@ print(f'Built {len(brawl.encode())/1024/1024:.2f} MB single-file brawl.html')
 viewer=(ROOT/'src'/'brawl'/'viewer-template.html').read_text(encoding='utf-8')
 viewer=viewer.replace('/*VIEWER_STYLE*/',(ROOT/'src'/'brawl'/'viewer-style.css').read_text(encoding='utf-8'))
 viewer=viewer.replace('/*BRAWL_ASSETS*/','window.BRAWL_ASSETS='+json.dumps(brawl_assets,ensure_ascii=False,separators=(',',':'))+';')
-for name in ['engine','combat','boss','crimson-core','crimson-adapter','world','viewer']:
+for name in ['engine','combat','boss','crimson-core','crimson-adapter','crew','world','viewer']:
     source=ROOT/'src'/'engine.js' if name=='engine' else ROOT/'src'/'brawl'/f'{name}.js'
     viewer=viewer.replace('/*BRAWL_'+name.upper()+'*/',source.read_text(encoding='utf-8'))
 (ROOT/'brawl-viewer.html').write_bytes(viewer.encode('utf-8'))

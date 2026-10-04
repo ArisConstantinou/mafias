@@ -22,7 +22,7 @@ for (const mode of ['last', 'score', 'crown']) {
   assert(sim.fighters.every(f => f.hp === 100 && !f.ko), mode);
   const arrival = frames(sim, 290);
   assert(arrival.some(e => e.type === 'bossLand'), mode);
-  assert.equal(arrival.filter(e => e.type === 'bossRevive').length, 4, mode);
+  assert.equal(arrival.filter(e => e.type === 'bossRevive').length, 0, mode);
   assert.equal(sim.boss.phase, 'battle', mode);
   assert(sim.fighters.every(f => f.hp === 100), mode);
 }

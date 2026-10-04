@@ -6,6 +6,7 @@ const cap=(n,a,b)=>Math.max(a,Math.min(b,n));
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const health=[280,340,400,460];
 const crewLaserRange=7.5;
+const pickupHeal=25,pickupCooldown=14;
 const shieldDeploy=.8,shieldDuration=10,shieldRetract=.7,shieldCooldown=60;
 BrawlSim.BOSS_LASER_RANGE=crewLaserRange;
 // Shared by collision, laser cover and the rendered boss-only arena.
@@ -54,14 +55,27 @@ Sim.prototype.beginBoss=function(roundWinner){
   shieldPhase:'stowed',shieldAge:0,shieldReadyAt:0,shieldPressure:0,shieldHitVisual:0,
   clawOpen:.2,grabbed:null,hitVisual:0,visualHitSerial:0};
  for(let item of this.items)item.broken=true;
+ this.healthPickups=[[-7,5.4],[7,5.4],[-5.8,-5],[5.8,-5]].map(([x,z],id)=>({id,x,z,y:floorHeight(x,z),amount:pickupHeal,availableAt:this.time}));
  for(let f of this.fighters){
   this.releaseGrab(f);this.dropItem(f);
-  f.x=(f.id-1.5)*1.75;f.z=4.5+(f.id%2)*.35;f.y=0;f.vx=f.vz=f.vy=0;
-  f.yaw=Math.PI;f.hp=100;f.stamina=100;f.head=f.body=f.leg=0;f.ko=false;
-  f.inv=0;f.weaponCooldown=0;f.laserAge=0;f.bossShots=0;f.bossDamage=0;f.grabbedBy=null;
-  this.state(f,'down',0);
+  f.bossSquad=f.id<2?0:1;
+  f.x=(f.bossSquad===0?-1:1)*5.2;f.z=2.0+(f.id%2)*1.8;f.y=0;f.vx=f.vz=f.vy=0;f.speed=0;
+  f.yaw=Math.atan2(this.boss.x-f.x,this.boss.z-f.z);f.hp=100;f.stamina=100;f.head=f.body=f.leg=0;f.ko=false;
+  f.cloud=false;f.blocking=false;f.walk=0;f.inv=0;f.weaponCooldown=0;f.laserAge=0;f.bossShots=0;f.bossDamage=0;f.grabbedBy=null;
+  this.state(f,'idle');
  }
  this.emit('bossStart',{roundWinner});
+};
+
+Sim.prototype.collectBossHealth=function(){
+ if(this.boss?.phase!=='battle')return;
+ for(const point of this.healthPickups||[]){
+  if(point.availableAt>this.time)continue;
+  const player=this.fighters.filter(f=>!f.ko&&f.hp<100&&!['bossGrabbed','bossThrown','down','getup'].includes(f.state)&&Math.abs(f.y-point.y)<.6&&distance(f,point)<.9).sort((a,b)=>distance(a,point)-distance(b,point)||a.id-b.id)[0];
+  if(!player)continue;
+  const amount=Math.min(point.amount,100-player.hp);player.hp+=amount;point.availableAt=this.time+pickupCooldown;
+  this.emit('healthPickup',{id:player.id,pickupId:point.id,amount,x:point.x,z:point.z});
+ }
 };
 
 Sim.prototype.bossAction=function(id,type,move){
@@ -142,15 +156,8 @@ Sim.prototype.bossStep=function(dt){
  b.hitVisual=Math.max(0,(b.hitVisual||0)-dt);
  b.shieldHitVisual=Math.max(0,b.shieldHitVisual-dt);
  if(b.phase==='arrival'){
-  for(let f of this.fighters){
-   let begin=1.95+f.id*.19;
-   if(b.age>=begin){
-    if(f.state==='down'){this.state(f,'getup',1.45);this.emit('bossRevive',{id:f.id});}
-    else if(f.state==='getup'){f.age+=dt;if(f.age>=f.duration)this.state(f,'idle');}
-   }
-  }
   if(b.age-dt<1.55&&b.age>=1.55)this.emit('bossLand',{x:b.x,z:b.z});
-  if(b.age>=4.65){b.phase='battle';b.age=0;this.fighters.forEach(f=>{this.state(f,'idle');f.inv=1.0;});this.emit('bossBattle',{});}
+  if(b.age>=4.65){b.phase='battle';b.age=0;this.fighters.forEach(f=>{this.state(f,'idle');f.inv=0;});this.emit('bossBattle',{});}
   return;
  }
  if(b.phase==='resurrect'){
@@ -238,8 +245,12 @@ Sim.prototype.bossStep=function(dt){
   let intent;
   if(f.id===this.selected)intent=this.input;
   else{
-   let theta=f.id*1.55+this.time*.28;
-   let ideal={x:b.x+Math.sin(theta)*5.35,z:b.z+Math.cos(theta)*5.35};
+   const side=f.bossSquad===0?-1:1,theta=Math.atan2(f.x-b.x,f.z-b.z);
+   let ideal={x:cap(b.x+side*4.8,-10.7,10.7),z:cap(b.z+3+(f.id%2)*1.8,-7.2,7.2)};
+   if(f.hp<=65){
+    const point=(this.healthPickups||[]).filter(h=>h.availableAt<=this.time&&Math.sign(h.x)===side&&distance(h,b)>3.2).sort((a,c)=>distance(f,a)-distance(f,c))[0];
+    if(point)ideal=point;
+   }
    let dx=ideal.x-f.x,dz=ideal.z-f.z,m=Math.hypot(dx,dz)||1;
    intent={x:m>.5?dx/m:0,z:m>.5?dz/m:0};
    if(b.attack==='charge'&&b.targetIds.includes(f.id)&&f.lastBossDodge!==b.attackSerial){
@@ -273,6 +284,7 @@ Sim.prototype.bossStep=function(dt){
    f.weaponCooldown=1.45+this.random()*.55;this.bossFire(f,false);
   }
  }
+ this.collectBossHealth();
  if(b.phase==='resurrect')return;
  if(this.fighters.every(f=>f.ko)){
   b.phase='laugh';b.age=0;b.attack='idle';this.emit('bossLaugh',{});return;

@@ -1,0 +1,37 @@
+[
+  {
+    "file": "src/brawl/crew.js",
+    "sha256": "b4e828a9851d4970ff5ef35b73acc9a738638b596254db9fd6aaaa06bfbc2481",
+    "source": "codex/brawl-rig-visuals:src/brawl/crew.js",
+    "bytes": 10939,
+    "note": "Original imported source hash; runtime integration may adapt JavaScript."
+  },
+  {
+    "file": "assets/crew-tactical.glb.gz",
+    "sha256": "508445ccc2c28e75a364100404e48f7f61d14c2df8b13cc9939b9941f4762b19",
+    "source": "codex/brawl-rig-visuals:assets/crew-tactical.glb.gz",
+    "bytes": 1145525,
+    "note": "Imported unchanged."
+  },
+  {
+    "file": "assets/crew-stylized.glb.gz",
+    "sha256": "14950ed3e428adb04609d81e5206692ce9a3828e6887c1f10ec2d68e0fbfda76",
+    "source": "codex/brawl-rig-visuals:assets/crew-stylized.glb.gz",
+    "bytes": 1145822,
+    "note": "Imported unchanged."
+  },
+  {
+    "file": "art/crew-tactical.blend",
+    "sha256": "ba95fb73ae06697410a6370c808e85a6ecece5301bae4f3709d3172d902e134d",
+    "source": "codex/brawl-rig-visuals:art/crew-tactical.blend",
+    "bytes": 1930106,
+    "note": "Imported unchanged."
+  },
+  {
+    "file": "art/crew-stylized.blend",
+    "sha256": "585c5c2a0f0825a78e577dc38419686533f8c33a2308d96880ece512ee0150c8",
+    "source": "codex/brawl-rig-visuals:art/crew-stylized.blend",
+    "bytes": 1945006,
+    "note": "Imported unchanged."
+  }
+]
