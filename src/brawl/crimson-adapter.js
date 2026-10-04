@@ -18,7 +18,7 @@ Renderer.prototype.initSkinning=function(){
   this.skinUniform={};for(const n of['Model','VP','Eye','Tex','UseTex','Alpha','Unlit','Tint','FogColor','Bones'])this.skinUniform[n]=gl.getUniformLocation(this.skinProgram,'u'+n);
   return true;
  };
-Renderer.prototype.skinnedMesh=function(data){const gl=this.gl,b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(data),gl.STATIC_DRAW);return{buffer:b,count:data.length/13};};
+Renderer.prototype.skinnedMesh=function(data){const gl=this.gl,b=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,b);gl.bufferData(gl.ARRAY_BUFFER,data instanceof Float32Array?data:new Float32Array(data),gl.STATIC_DRAW);return{buffer:b,count:data.length/13};};
 Renderer.prototype.drawSkinned=function(mesh,actor,palette,joints,opt={}){
   if(!mesh||!mesh.count)return;
   const gl=this.gl,u=this.skinUniform;
@@ -42,23 +42,49 @@ class VoltBossAdapter {
   if(!renderer?.mesh||!renderer?.draw||!renderer?.texture)throw new TypeError('Expected the existing VOLT Renderer instance.');
   const result=new VoltBossAdapter();result.renderer=renderer;result.asset=asset;result.rig=new RigPlayer(asset);result.onEvent=onEvent;result.batches=[];result.textures=new Map();result.disposed=false;
   result.gpuSkin=renderer.initSkinning();
-  const grouped=new Map();
+  // Count first, then fill typed GPU buffers directly. Expanded JavaScript
+  // number arrays otherwise multiply the memory cost of the detailed v401 mesh.
+  const grouped=new Map(),primitives=[];
   asset.json.meshes.forEach(mesh=>mesh.primitives.forEach(p=>{
-   const a=p.attributes,pos=asset.accessor(a.POSITION),norm=asset.accessor(a.NORMAL),uv=asset.accessor(a.TEXCOORD_0),joints=asset.accessor(a.JOINTS_0),weights=asset.accessor(a.WEIGHTS_0),indices=asset.accessor(p.indices),mat=asset.json.materials[p.material],factor=mat.pbrMetallicRoughness?.baseColorFactor||[1,1,1,1],glow=(mat.emissiveFactor||[0,0,0]).some(x=>x>0)?1:0;
-   for(let n=0;n<indices.length;n+=3){const joint=joints[indices[n]*4],key=joint+':'+p.material;let batch=grouped.get(key);if(!batch){batch={joint,material:mat,data:[]};grouped.set(key,batch);}for(let k=0;k<3;k++){const i=indices[n+k];if(joints[i*4]!==joint||Math.abs(weights[i*4]-1)>1e-5)throw Error('VOLT adapter expects rigid one-joint triangles.');batch.data.push(pos[i*3],pos[i*3+1],pos[i*3+2],norm[i*3],norm[i*3+1],norm[i*3+2],factor[0],factor[1],factor[2],uv[i*2],1-uv[i*2+1],glow);}}
+   const a=p.attributes,indices=asset.accessor(p.indices),joints=asset.accessor(a.JOINTS_0),weights=asset.accessor(a.WEIGHTS_0);
+   const mat=asset.json.materials[p.material],factor=mat.pbrMetallicRoughness?.baseColorFactor||[1,1,1,1];
+   const color=a.COLOR_0===undefined?null:asset.accessor(a.COLOR_0),description=color?asset.json.accessors[a.COLOR_0]:null;
+   if(description&&!description.normalized&&description.componentType!==5126)throw Error('Unsupported unnormalized vertex color.');
+   const info={material:p.material,mat,factor,indices,joints,pos:asset.accessor(a.POSITION),norm:asset.accessor(a.NORMAL),uv:asset.accessor(a.TEXCOORD_0),color,
+    colorStride:description?.type==='VEC3'?3:4,colorScale:description?.componentType===5121?255:description?.componentType===5123?65535:1,
+    glow:(mat.emissiveFactor||[0,0,0]).some(x=>x>0)||mat.extensions?.KHR_materials_unlit!==undefined?1:0};
+   primitives.push(info);
+   for(let n=0;n<indices.length;n+=3){const joint=joints[indices[n]*4],key=joint+':'+p.material;let batch=grouped.get(key);
+    if(!batch){batch={joint,material:mat,count:0};grouped.set(key,batch);}
+    for(let k=0;k<3;k++){const i=indices[n+k];if(joints[i*4]!==joint||Math.abs(weights[i*4]-1)>1e-5)throw Error('VOLT adapter expects rigid one-joint triangles.');}
+    batch.count+=3;
+   }
   }));
   const packed=[];
   for(const batch of grouped.values()){
    const tex=batch.material.pbrMetallicRoughness?.baseColorTexture?.index;
    if(tex!==undefined&&!result.textures.has(tex)){const source=asset.json.textures[tex].source;result.textures.set(tex,renderer.texture(asset.images[source]));}
    const texture=tex===undefined?null:result.textures.get(tex),face=batch.material.name==='Pilot / reference-projected face';
-   if(!result.gpuSkin){result.batches.push({mesh:renderer.mesh(batch.data),joint:batch.joint,texture,face});continue;}
-   let group=packed.find(b=>b.material===batch.material&&b.joints.length<renderer.maxSkinBones);
-   if(!group){group={material:batch.material,texture,face,joints:[],data:[]};packed.push(group);}
-   const localBone=group.joints.length;group.joints.push(batch.joint);
-   for(let i=0;i<batch.data.length;i+=12)group.data.push(...batch.data.slice(i,i+12),localBone);
+   let group=result.gpuSkin?packed.find(b=>b.material===batch.material&&b.joints.length<renderer.maxSkinBones):null;
+   if(!group){group={material:batch.material,texture,face,joints:[],count:0,cursor:0,stride:result.gpuSkin?13:12};packed.push(group);}
+   batch.localBone=group.joints.length;group.joints.push(batch.joint);group.count+=batch.count;batch.group=group;
   }
-  if(result.gpuSkin)for(const batch of packed)result.batches.push({mesh:renderer.skinnedMesh(batch.data),joints:batch.joints,texture:batch.texture,face:batch.face});
+  for(const group of packed)group.data=new Float32Array(group.count*group.stride);
+  for(const p of primitives){const {indices,joints,pos,norm,uv,factor,color,colorStride,colorScale,glow}=p;
+   for(let n=0;n<indices.length;n+=3){const batch=grouped.get(joints[indices[n]*4]+':'+p.material),group=batch.group,data=group.data;
+    for(let k=0;k<3;k++){const i=indices[n+k];let o=group.cursor;
+     for(let c=0;c<3;c++)data[o++]=pos[i*3+c];
+     for(let c=0;c<3;c++)data[o++]=norm[i*3+c];
+     for(let c=0;c<3;c++){const linear=color?Math.max(0,Math.min(1,color[i*colorStride+c]*factor[c]/colorScale)):null;
+      data[o++]=linear===null?factor[c]:linear<=.0031308?12.92*linear:1.055*Math.pow(linear,1/2.4)-.055;}
+     data[o++]=uv[i*2];data[o++]=1-uv[i*2+1];data[o++]=glow;
+     if(result.gpuSkin)data[o++]=batch.localBone;group.cursor=o;
+    }
+   }
+  }
+  for(const batch of packed)result.batches.push(result.gpuSkin
+   ?{mesh:renderer.skinnedMesh(batch.data),joints:batch.joints,texture:batch.texture,face:batch.face}
+   :{mesh:renderer.mesh(batch.data),joint:batch.joints[0],texture:batch.texture,face:batch.face});
   return result;
  }
  play(clip,{fade=.12,loop}={}){this.rig.setClip(clip,{fade,loop});this.rig.playing=true;return this;}

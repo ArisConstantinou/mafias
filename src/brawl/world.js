@@ -14,13 +14,8 @@ class BrawlScene{
   const packed=await response.arrayBuffer();
   const raw=await new Response(new Blob([packed]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
   this.crimson=VoltBossAdapter.fromAsset(this.R,await GLBAsset.fromArrayBuffer(raw));
-  // The supplied shield was parented to the spine. Its original bind matrices
-  // remain valid; the skinned mount now follows the actual left hand joint.
-  const skeleton=this.crimson.asset;
-  skeleton.parents[skeleton.byName.get('Shield_Mount')]=skeleton.byName.get('Hand_L');
-  skeleton.nodes[skeleton.byName.get('Shield_Mount')].scale=[1.24,1.08,1];
-  this.crimson.rig.evaluate();
-  this.bossTriangles=this.crimson.asset.stats.triangles;
+  // v401 contains the authored shield hierarchy, grips and baked animations.
+  this.bossTriangles=this.crimson.asset.json.meshes.reduce((sum,m)=>sum+m.primitives.reduce((n,p)=>n+this.crimson.asset.json.accessors[p.indices].count/3,0),0);
   this.bossClipKey='';
  }
  tex(w,h,fn,repeat=false){return canvasTex(this.R,w,h,fn,repeat);}
@@ -177,14 +172,32 @@ class BrawlScene{
  resize(w,h,quality='auto'){this.quality=quality;let d=devicePixelRatio||1,r=quality==='low'?.8:quality==='high'?Math.min(d,1.75):Math.min(d,1.2);this.R.resize(w,h,r);this.camera=null;}
  matrix(pos,rot=[0,0,0],scale=[1,1,1]){return M4.trs(pos,rot,scale);}
  drawPart(mesh,parent,p,r=[0,0,0],s=[1,1,1],opt={}){let m=M4.mul(parent,M4.trs(p,r,s));this.R.draw(mesh,m,opt);return m;}
-  drawFighter(f,sim){let R=this.R,M=this.mesh,c=M.fighters[f.id],color=BRAWL_COLORS[f.id];let prone=['down','ko','groundGrabbed'].includes(f.state),getup=f.state==='getup',duck=f.state==='dodge',strike=BrawlSim.ATTACKS[f.state],p=strike?f.age/(strike.wind+strike.active+strike.recovery):0;
+  grabbedRenderFighter(f){
+  const anchors=this.grabVisualRoots||(this.grabVisualRoots={});
+  if(f.state==='bossGrabbed'&&this.bossGrabSocket){
+   const tilt=-.34+Math.sin(this.time*14)*.14;
+   const body=M4.mul(M4.trs([0,0,0],[0,f.yaw,0]),M4.trs([0,.12,0],[tilt,0,0]));
+   const offset=M4.point(body,[.46,1.72,0]);
+   const position=this.bossGrabSocket.map((v,i)=>v-offset[i]);
+   anchors[f.id]={position,tilt};
+   return {...f,x:position[0],y:position[1],z:position[2]};
+  }
+  if(f.state==='bossThrown'&&anchors[f.id]){
+   const a=anchors[f.id],p=a.position,blend=smooth(0,.24,f.age);
+   if(blend>=1)delete anchors[f.id];
+   return {...f,x:lerp(p[0],f.x,blend),y:lerp(p[1],f.y,blend),z:lerp(p[2],f.z,blend),
+    bossThrowTilt:lerp(a.tilt,-1.05+Math.sin(f.age*12)*.32,blend),bossThrowHeight:lerp(.12,.02,blend)};
+  }
+  delete anchors[f.id];return f;
+ }
+ drawFighter(f,sim){let R=this.R,M=this.mesh,c=M.fighters[f.id],color=BRAWL_COLORS[f.id];let prone=['down','ko','groundGrabbed'].includes(f.state),getup=f.state==='getup',duck=f.state==='dodge',strike=BrawlSim.ATTACKS[f.state],p=strike?f.age/(strike.wind+strike.active+strike.recovery):0;
   let sway=f.state==='dizzy'?f.age*3.1+Math.sin(this.time*7+f.id)*.42:f.state==='spin'?f.age*12:0;
   let root=M4.trs([f.x,f.y,f.z],[0,f.yaw+sway,0]);let dim=f.ko?.56:1;
   this.shadow(f.x,f.z,1.55,f.ko?.15:.65);
   if(f.cloud)return;
   let bob=f.speed>.2?Math.abs(Math.sin(f.walk))*.075:Math.sin(this.time*3.4+f.id)*.022;
-   let tilt=0,h=-.02+bob;if(prone){tilt=-Math.PI/2;h=.3;}else if(getup){let q=smooth(0,f.duration||.5,f.age);tilt=-Math.PI/2*(1-q);h=.3*(1-q);}else if(duck){tilt=.50;h=-.4;}else if(f.state==='hit'){tilt=-.22*Math.sin(f.age/.24*Math.PI);}else if(f.state==='bossGrabbed'){tilt=-.34+Math.sin(this.time*14)*.14;h=.12;}else if(f.state==='bossThrown'){tilt=-1.05+Math.sin(f.age*12)*.32;h=.02;}else if(f.state==='dizzy'){tilt=Math.sin(this.time*6+f.id)*.24;h=Math.sin(this.time*9+f.id)*.07;}else if(f.state==='shoved'){tilt=-.38*Math.sin(Math.min(1,f.age/.48)*Math.PI);h=-.10;}else if(f.state==='push'){tilt=.16*Math.sin(Math.min(1,f.age/.42)*Math.PI);}else if(f.state==='heavy'){tilt=-.16*Math.sin(p*Math.PI*2);}else if(f.state==='grabbed'){tilt=-.13;h=.1;}
-  root=M4.mul(root,M4.trs([0,h,0],[tilt,0,0]));let opts={tint:[dim,dim,dim]};R.draw(c.body,root,opts);this.drawPart(M.plane,root,[-.20,1.62,.274],[0,0,0],[.23,.23,1],{texture:this.texture.logo,unlit:true});
+   let tilt=0,h=-.02+bob;if(prone){tilt=-Math.PI/2;h=.3;}else if(getup){let q=smooth(0,f.duration||.5,f.age);tilt=-Math.PI/2*(1-q);h=.3*(1-q);}else if(duck){tilt=.50;h=-.4;}else if(f.state==='hit'){tilt=-.22*Math.sin(f.age/.24*Math.PI);}else if(f.state==='bossGrabbed'){tilt=-.34+Math.sin(this.time*14)*.14;h=.12;}else if(f.state==='bossThrown'){tilt=f.bossThrowTilt??(-1.05+Math.sin(f.age*12)*.32);h=f.bossThrowHeight??.02;}else if(f.state==='dizzy'){tilt=Math.sin(this.time*6+f.id)*.24;h=Math.sin(this.time*9+f.id)*.07;}else if(f.state==='shoved'){tilt=-.38*Math.sin(Math.min(1,f.age/.48)*Math.PI);h=-.10;}else if(f.state==='push'){tilt=.16*Math.sin(Math.min(1,f.age/.42)*Math.PI);}else if(f.state==='heavy'){tilt=-.16*Math.sin(p*Math.PI*2);}else if(f.state==='grabbed'){tilt=-.13;h=.1;}
+  root=M4.mul(root,M4.trs([0,h,0],[tilt,0,0]));if(f.state==='bossGrabbed')f.renderGrabShoulder=M4.point(root,[.46,1.72,0]);let opts={tint:[dim,dim,dim]};R.draw(c.body,root,opts);this.drawPart(M.plane,root,[-.20,1.62,.274],[0,0,0],[.23,.23,1],{texture:this.texture.logo,unlit:true});
   // Hierarchical shoulders / elbows / wrists. No camera rotation is applied to hands.
   let walk=Math.sin(f.walk)*Math.min(1,f.speed/2.3),still=f.speed<.25;
   for(let side of[-1,1]){let shoulderX=-.36+walk*.22*side,elbowX=-1.20,shoulderZ=-side*.13,wrist=0;
@@ -228,87 +241,38 @@ class BrawlScene{
   const R=this.R,t=boss.age||0,landing=boss.phase==='arrival';
   const revival=boss.phase==='resurrect',defeated=boss.phase==='dead';
   const attackAge=boss.attackAge||0,charge=boss.attack==='charge'?smooth(0,.95,attackAge):0;
-  let key='idle',clip='Idle',loop=true,speed=1;
+  let key='idle',clip='Idle',loop=true,speed=1,forcedClipTime=null;
   if(boss.viewerClip){key='viewer-'+boss.viewerClip;clip=boss.viewerClip;loop=!!this.crimson.asset.clips.find(c=>c.name===clip)?.extras?.loop;}
-  else if(landing&&t<2.1){key='spawn';clip='Spawn';loop=false;}
-  else if(revival&&t<1.3){key='rebuild-down';clip='Defeat_Kneel';loop=false;speed=2;}
-  else if(revival){key='rebuild-up';clip='Spawn';loop=false;}
-  else if(defeated){key='defeat';clip='Defeat_Kneel';loop=false;}
-  else if(boss.phase==='laugh'){key='laugh';clip='Taunt';loop=false;}
-  else if(boss.shieldPhase!=='stowed'){key='shield-brace';clip='Guard';}
-  else if(boss.attack==='slamWind'||boss.attack==='slamImpact'){key='stomp-'+boss.attackSerial;clip='Stomp';loop=false;}
-  else if(boss.attack==='charge'||boss.attack==='beam'){key='cannon-'+boss.attackSerial;clip='Cannon_Fire';loop=false;speed=.76;}
-  else if(boss.attack==='claw'){key='sword-'+boss.attackSerial;clip='Sword_Slash';loop=false;}
-  else if(boss.hitVisual>0){key='hit-'+boss.visualHitSerial;clip='Hit_Reaction';loop=false;}
-  else if(boss.aimHold>0){key='guard';clip='Guard';}
-  else if(boss.moving){key='run';clip='Run';}
-  // Articulate the imported skin, with the shield gripped by Hand_L. The
-  // opposite sword arm, torso and both legs brace behind the left-arm guard.
-  const rig=this.crimson.rig;
-  rig.poseModifier=player=>{
-   const phase=boss.shieldPhase,age=boss.shieldAge||0;
-   const amount=phase==='active'?1:phase==='deploy'?smooth(0,.8,age):
-    phase==='retract'?1-smooth(0,.7,age):0;
-   const bone=name=>player.asset.byName.get(name);
-   const original=[];
-   const save=i=>{if(i!==undefined&&!original.some(p=>p.index===i))original.push({index:i,translation:player.translations[i].slice(),rotation:player.rotations[i].slice()});};
-   const pose=(name,rotation,weight=amount)=>{const i=bone(name);if(i===undefined)return;
-    save(i);
-    player.rotations[i]=Math3D.slerp(player.rotations[i],rotation,weight);
-   };
-   const q=(x,y=0,z=0)=>{const sx=Math.sin(x/2),cx=Math.cos(x/2),sy=Math.sin(y/2),cy=Math.cos(y/2),sz=Math.sin(z/2),cz=Math.cos(z/2);
-    return[sx*cy*cz+cx*sy*sz,cx*sy*cz-sx*cy*sz,cx*cy*sz+sx*sy*cz,cx*cy*cz-sx*sy*sz];};
-   const mount=bone('Shield_Mount');
-   if(mount===undefined)return;
-   save(mount);
-   const shieldImpact=Math.min(1,(boss.shieldHitVisual||0)/.24);
-   // Match the guard's armored face while stowed, but leave the cannon's
-   // forward and lateral firing path clear beside the left forearm.
-   player.translations[mount]=[.58-.79*amount,-.08+.15*amount,-.15+.42*amount-.05*shieldImpact];
-   player.rotations[mount]=Math3D.slerp([.15646,.96236,-.06353,.21295],q(1.28,Math.PI-.25,-.10),amount);
-   if(amount>0){
-    pose('UpperArm_L',q(-.90+.12*shieldImpact,-.10,-.34),amount);
-    pose('Forearm_L',q(-1.00,.08,-.08),amount);
-    pose('Hand_L',q(.16,-.08,-.08),amount);
-    pose('UpperArm_R',q(-.32,.15,-.24),amount);
-    pose('Forearm_R',q(-.78),amount);
-    pose('Spine_Lower',q(.15,.08,-.06),amount);
-    pose('Spine_Upper',q(.28-.07*shieldImpact,.10,-.10),amount);
-    pose('Head',q(-.22,-.07),amount);
-    pose('Thigh_L',q(-.38,0,.22),amount);
-    pose('Shin_L',q(.80),amount);
-    pose('Foot_L',q(-.40),amount);
-    pose('Thigh_R',q(.12,0,-.22),amount);
-    pose('Shin_R',q(.50),amount);
-    pose('Foot_R',q(-.55),amount);
-    const pelvis=bone('Pelvis');
-    save(pelvis);
-    player.translations[pelvis][1]-=.22*amount;
-    player.translations[pelvis][2]+=.10*amount;
+  if(!boss.viewerClip){
+   key='idle';clip='Idle';loop=true;speed=1;
+   if(landing&&t<4.65){key='spawn';clip='Spawn';loop=false;}
+   else if(revival){
+    // The sim's resurrection phase starts on the lethal hit. Collapse first,
+    // then hand off on the identical kneeling pose to the rising action.
+    // Keep the existing 3.5-second encounter timing and rebuild event.
+    loop=false;
+    if(t<.70){key='rebuild-collapse';clip='Defeat_Kneel';forcedClipTime=t*(1.48/.70);}
+    else {key='rebuild-rise';clip='Resurrect';
+     forcedClipTime=t<1.15?.80+(t-.70)*(.35/.45):Math.min(3.5,t);}
    }
-   // The imported palms and sword blade face the camera broadside in their
-   // bind pose. Roll the wrists around their long axes, keeping the shield's
-   // world-facing panel fixed while its left-hand grip turns inside it.
-   const qmul=(a,b)=>[
-    a[3]*b[0]+a[0]*b[3]+a[1]*b[2]-a[2]*b[1],
-    a[3]*b[1]-a[0]*b[2]+a[1]*b[3]+a[2]*b[0],
-    a[3]*b[2]+a[0]*b[1]-a[1]*b[0]+a[2]*b[3],
-    a[3]*b[3]-a[0]*b[0]-a[1]*b[1]-a[2]*b[2]
-   ];
-   const twist=q(0,Math.PI/2),untwist=q(0,-Math.PI/2);
-   for(const name of ['Hand_R','Hand_L']){const i=bone(name);save(i);player.rotations[i]=qmul(player.rotations[i],twist);}
-   const shieldOffset=player.translations[mount];
-   player.translations[mount]=[-shieldOffset[2],shieldOffset[1],shieldOffset[0]];
-   player.rotations[mount]=qmul(untwist,player.rotations[mount]);
-   // On guard the forearm-mounted cannon telescopes toward the elbow, behind
-   // the shield plate. It returns to its original mount as the shield closes.
-   const cannon=bone('Cannon');
-   if(cannon!==undefined&&amount>0){save(cannon);player.translations[cannon][0]-=.28*amount;player.translations[cannon][1]+=.52*amount;}
-   player.poseBase=original;
-  };
+   else if(defeated){key='defeat';clip='Defeat_Kneel';loop=false;}
+   else if(boss.phase==='laugh'){key='laugh';clip='Taunt';loop=false;}
+   else if(boss.shieldPhase==='deploy'){key='shield-deploy';clip='Guard_Deploy';loop=false;speed=1.3/.8;}
+   else if(boss.shieldPhase==='active'){key='shield-active';clip='Guard';loop=true;}
+   else if(boss.shieldPhase==='retract'){key='shield-retract';clip='Guard_Retract';loop=false;speed=1.2/.7;}
+   else if(boss.attack==='slamWind'||boss.attack==='slamImpact'){key='stomp-'+boss.attackSerial;clip='Stomp';loop=false;}
+   else if(boss.attack==='charge'){key='cannon-charge-'+boss.attackSerial;clip='Cannon_Charge';loop=false;}
+   else if(boss.attack==='beam'){key='cannon-fire-'+boss.attackSerial+'-'+Math.floor(boss.attackAge/.28);clip='Cannon_Fire';loop=false;}
+   else if(boss.attack==='claw'){key='grab-throw-'+boss.attackSerial;clip='Grab_Throw';loop=false;}
+   else if(boss.hitVisual>0){key='hit-'+boss.visualHitSerial;clip='Hit_Reaction';loop=false;}
+   else if(boss.aimHold>0){key='aim';clip='Aim';loop=true;}
+   else if(boss.moving){key='run';clip='Run';loop=true;}
+  }
+  this.crimson.rig.poseModifier=null;
   if(this.bossClipKey!==key){this.crimson.play(clip,{fade:this.bossClipKey?.12:0,loop});this.bossClipKey=key;}
   this.crimson.rig.speed=speed;
   if(boss.viewerTime!==undefined)this.crimson.rig.seek(boss.viewerTime);
+  else if(forcedClipTime!==null)this.crimson.rig.seek(forcedClipTime);
   else this.crimson.update(this.visualDt??1/60);
   const drop=landing?1-smooth(0,1.55,t):0;
   const hover=revival?Math.sin(smooth(1.3,3.4,t)*Math.PI)*.33:0;
@@ -316,6 +280,7 @@ class BrawlScene{
    [0,(boss.yaw??Math.PI)+Math.PI,0],[1.65,1.65,1.65]);
   this.shadow(boss.x||0,boss.z||0,6.0,.65);
   this.crimson.draw(root,{tint:defeated?[.68,.72,.76]:[1,1,1]});
+  this.bossGrabSocket=this.crimson.socket('Socket_Grab',root).position;
   this.bossMuzzle=this.crimson.socket('Socket_Muzzle',root).position;
   this.bossShield=this.crimson.socket('Socket_Shield',root).position;
   if(charge>0){const radius=.25+charge*.48;
@@ -374,15 +339,16 @@ class BrawlScene{
    let base=portrait?[0,14.8,17.8]:sidePanel?[0,8.2,10.8]:[0,10.5,14.5];if(sim.boss){let separation=Math.hypot(sim.boss.x-player.x,sim.boss.z-player.z),zoom=Math.min(1.3,1+Math.max(0,separation-(portrait?6:8))*.045);base=base.map(v=>v*zoom);}let target=[this.center[0],.3,this.center[1]-.7],eye=[this.center[0]+base[0],base[1],this.center[1]+base[2]];if(!this.reduced&&state==='playing'){eye[0]+=Math.sin(this.time*74)*this.shake;eye[1]+=Math.cos(this.time*65)*this.shake;}
   this.camera=eye;R.begin(eye,target,portrait?53:54);R.draw(M.ground,M4.id(),{texture:T.concrete});R.draw(M.world);for(let l of this.labels)R.draw(M.plane,M4.trs(l.p,l.rot,l.s),{texture:l.tex});if(sim.boss)R.draw(M.bossArena);else R.draw(M.plane,M4.trs([0,.013,0],[-Math.PI/2,0,0],[9,9,1]),{texture:T.decal,blend:true,unlit:true,depthWrite:false});
   if(state!=='menu'){let col=BRAWL_COLORS[player.id];R.draw(M.ring,M4.trs([player.x,.027,player.z],[Math.PI/2,0,0],[.73,.73,.025]),{tint:rgb(col),unlit:true});let nearest=sim.nearestItem(player);if(nearest&&Math.hypot(nearest.x-player.x,nearest.z-player.z)<1.9&&player.held===null&&!player.ko)R.draw(M.ring,M4.trs([nearest.x,.055,nearest.z],[Math.PI/2,0,this.time],[.51,.51,.022]),{tint:rgb('#f5df88'),unlit:true});}
+  if(sim.boss)this.drawBoss(sim.boss);
   // Props have their own physical positions and rotations, not emoji billboards.
   for(let o of sim.items){if(o.broken)continue;let scale=o.type==='mop'?.80:1;this.shadow(o.x,o.z,.8,.45);let rot=[o.flying?o.spin:0,o.flying?o.spin*.7:o.yaw,0];let p=[o.x,o.y,o.z];if(o.held!==null){let f=sim.fighters[o.held];p=[f.x+Math.sin(f.yaw)*.8,f.y+1.55,f.z+Math.cos(f.yaw)*.8];rot=[-.24,f.yaw,0];}R.draw(M.props[o.type],M4.trs(p,rot,[scale,scale,scale]));}
   if(sim.mode==='crown'&&sim.crown.holder===null){this.shadow(sim.crown.x,sim.crown.z,1,.6);R.draw(M.crown,M4.trs([sim.crown.x,.45+Math.sin(this.time*3)*.13,sim.crown.z],[0,this.time,0],[1.35,1.35,1.35]));}
   for(let f of sim.fighters)if(state!=='tutorial'||f.id<2){
-   this.drawFighter(f,sim);
+   const displayed=sim.boss?this.grabbedRenderFighter(f):f;
+   this.drawFighter(displayed,sim);if(displayed!==f){f.renderHead=displayed.renderHead;f.renderGrabShoulder=displayed.renderGrabShoulder;}
    if(sim.boss&&sim.boss.phase==='arrival'&&f.state==='getup')R.draw(M.ring,M4.trs([f.x,.05,f.z],[Math.PI/2,0,0],[.84,.84,.04]),{tint:rgb('#80ecff'),unlit:true,blend:true,alpha:.65,depthWrite:false});
   }
   if(state!=='tutorial')this.drawCloud(sim);
-  if(sim.boss)this.drawBoss(sim.boss);
   if(sim.boss?.attack==='charge')for(let i=0;i<sim.boss.targetPoints.length;i++){
    let p=sim.boss.targetPoints[i],a=this.bossMuzzle||[sim.boss.x,1.65,sim.boss.z+1.8],b=[p.x,.5,p.z];
    this.drawBeam(a,b,.012,'#ff884c',.38+.24*Math.sin(this.time*19));
