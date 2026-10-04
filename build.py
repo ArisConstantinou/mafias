@@ -13,6 +13,7 @@ assets={
  'items':{t:data(ROOT/'assets'/f'{t}.png','image/png') for t in ['banana','pins','oil','box']}
 }
 s=(ROOT/'src'/'template.html').read_text(encoding='utf-8')
+s=s.replace('/*APP_ICON*/',data(ROOT/'icon-192.png','image/png'))
 s=s.replace('/*ASSETS*/','const ASSETS='+json.dumps(assets,ensure_ascii=False,separators=(',',':'))+';')
 s=s.replace('/*MODE_SCOOTER_ICON*/',data(ROOT/'assets'/'mode-scooter.webp','image/webp'))
 s=s.replace('/*MODE_BRAWL_ICON*/',data(ROOT/'assets'/'mode-brawl.webp','image/webp'))
