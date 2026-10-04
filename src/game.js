@@ -78,7 +78,7 @@ class ScooterGame{
   $('menu').classList.toggle('brawl-mode',brawl);
   $('scooterSetup').hidden=brawl;
   $('startBtn').querySelector('span').textContent=brawl?'OPEN BRAWL SETUP':'LET IT RIP';
-  $('menuKeyboardHint').textContent=brawl?'KEYBOARD · WASD move · J punch · K kick · L grab · Q spin · E prop · Space dodge · stand still to block':'KEYBOARD · WASD drive · IJKL / arrows aim · Space fire · 1–4 throw · Esc pause';
+  $('menuKeyboardHint').textContent=brawl?'KEYBOARD · WASD move · J punch · K kick · L grab · Q spin · E prop · Space dodge · stand still to block':'PC · WASD drive · Mouse aim · Left click fire · 1–4 throw · Esc pause';
   $('routeEyebrow').textContent=brawl?'AFTER HOURS':'THE CIRCUIT';
   $('routeName').textContent=brawl?'NK CREW YARD':'ELECTRIC AVENUE';
   $('routeLength').textContent=brawl?'FOUR FIGHTERS / ONE YARD':`${Math.round(this.track.length)} M / MARKET / OLD QUARTER / POWER DISTRICT`;

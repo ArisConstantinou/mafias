@@ -7,6 +7,7 @@ const out=path.join(root,'.qa-run','scooter-pc-controls',published?'public':live
   if(!live&&!published)await c.route(/http:\/\/127\.0\.0\.1:5174\/(?:index\.html)?(?:\?.*)?$/,r=>r.fulfill({body:fs.readFileSync(path.join(root,'index.html')),contentType:'text/html'}));
   const p=await c.newPage(),errors=[];p.on('pageerror',e=>errors.push(String(e)));p.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
   await p.goto(published?'https://arisconstantinou.github.io/mafias/':'http://127.0.0.1:5174/');await p.waitForFunction(()=>window.voltRoast?.state==='menu');
+  assert.match(await p.locator('#menuKeyboardHint').textContent(),/Mouse aim · Left click fire/);
   await p.evaluate(()=>{
    const g=voltRoast;g.frame=()=>{};g.selected=0;g.controlAI=()=>{};g.world.obstacles=[];g.world.pickups=[];
    window.prepare=()=>{g.start();g.state='racing';g.audio.muted=true;document.getElementById('countdown').style.display='none';g.riders.slice(1).forEach((q,i)=>{q.s=200+i*60;q.lane=5;q.speed=0;});g.render(1/60);window.playerShots=[];};
