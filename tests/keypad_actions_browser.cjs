@@ -23,7 +23,7 @@ fs.mkdirSync(out,{recursive:true});
    brawl.act=type=>{keypadActions.push(type);return act(type);};
   });
   await page.screenshot({path:path.join(out,'brawl-desktop.png')});
-  for(const [key,action] of [['Numpad1','punch'],['Numpad2','kick'],['Numpad3','dodge'],['Numpad4','grab'],['Numpad5','pick']]){
+  for(const [key,action] of [['Numpad1','punch'],['Numpad2','kick'],['Numpad3','dodge'],['Numpad4','grab'],['Numpad5','pick'],['Digit1','punch'],['Digit2','kick'],['Digit3','dodge'],['Digit4','grab'],['Digit5','pick']]){
    await page.keyboard.press(key);
    const seen=await page.evaluate(()=>keypadActions.at(-1));
    assert.equal(seen,action,`${key} routes to ${action}`);
@@ -39,6 +39,12 @@ fs.mkdirSync(out,{recursive:true});
   assert.equal(await page.evaluate(()=>keypadActions.at(-1)),'spin','Numpad4 follows the contextual Spin button');
   assert.equal(await page.evaluate(()=>brawl.sim.fighters[0].spinGrabTarget),1,'Numpad4 starts the actual spin grab');
   await page.evaluate(()=>{
+   brawl.start({instant:true,ai:false,seed:7391,selected:0,mode:'score'});brawl.testFrozen=true;
+   const s=brawl.sim,p=s.fighters[0],q=s.fighters[1];q.x=p.x+1.3;q.z=p.z;q.inv=0;s.dizzy(q,2.5);brawl.updateHUD();
+  });
+  await page.keyboard.press('Digit4');
+  assert.equal(await page.evaluate(()=>brawl.sim.fighters[0].spinGrabTarget),1,'Digit4 starts the actual contextual spin');
+  await page.evaluate(()=>{
    brawl.start({instant:true,ai:false,seed:7391,selected:0,mode:'score'});
    brawl.testFrozen=true;
    const s=brawl.sim,p=s.fighters[0],item=s.items[0];
@@ -50,6 +56,13 @@ fs.mkdirSync(out,{recursive:true});
   await page.keyboard.press('Numpad5');
   await page.evaluate(()=>advanceTime(250));
   assert.equal(await page.evaluate(()=>brawl.sim.fighters[0].throws),1,'Numpad5 throws the held prop');
+  await page.evaluate(()=>{
+   brawl.start({instant:true,ai:false,seed:7391,selected:0,mode:'score'});brawl.testFrozen=true;
+   const s=brawl.sim,p=s.fighters[0],item=s.items[0];item.x=p.x+.5;item.z=p.z;item.y=0;item.held=null;item.flying=false;item.broken=false;item.slipUntil=0;
+  });
+  await page.keyboard.press('Digit5');assert.notEqual(await page.evaluate(()=>brawl.sim.fighters[0].held),null,'Digit5 picks up the nearby prop');
+  await page.evaluate(()=>advanceTime(400));await page.keyboard.press('Digit5');await page.evaluate(()=>advanceTime(250));
+  assert.equal(await page.evaluate(()=>brawl.sim.fighters[0].throws),1,'Digit5 throws the held prop');
   await page.evaluate(()=>{
    const s=brawl.sim;s.beginBoss(0);for(let i=0;i<290;i++)s.step(1/60);
    const b=s.boss,p=s.fighters[0];b.x=0;b.z=0;p.x=0;p.z=4;p.weaponCooldown=0;
@@ -72,6 +85,13 @@ fs.mkdirSync(out,{recursive:true});
   await page.waitForTimeout(950);
   await page.keyboard.up('Numpad1');
   assert(await page.evaluate(()=>brawl.sim.fighters[0].bossShots)>=beforeHold+2,'held Numpad1 repeats fire');
+  const beforeDigitHold=await page.evaluate(()=>{brawl.sim.fighters[0].weaponCooldown=0;return brawl.sim.fighters[0].bossShots;});
+  await page.keyboard.down('Digit1');await page.waitForTimeout(950);await page.keyboard.up('Digit1');
+  assert(await page.evaluate(()=>brawl.sim.fighters[0].bossShots)>=beforeDigitHold+2,'held Digit1 repeats fire');
+  await page.evaluate(()=>{brawl.testFrozen=true;const p=brawl.sim.fighters[0];p.weaponCooldown=0;p.stamina=100;});
+  const digitShots=await page.evaluate(()=>brawl.sim.fighters[0].bossShots);await page.keyboard.press('Digit2');
+  assert.equal(await page.evaluate(()=>brawl.sim.fighters[0].bossShots),digitShots+1,'Digit2 fires an actual power shot');
+  await page.keyboard.press('Digit3');assert.equal(await page.evaluate(()=>brawl.sim.fighters[0].state),'dodge','Digit3 performs a dodge');
   await page.goto(pathToFileURL(path.join(root,'index.html')).href);
   await page.waitForFunction(()=>window.voltRoast?.state==='menu');
   await page.evaluate(()=>{voltRoast.start();voltRoast.state='racing';voltRoast.audio.muted=true;});

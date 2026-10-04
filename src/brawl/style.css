@@ -168,3 +168,25 @@ body.boss-mode .combat.grab,body.boss-mode .combat.pick{display:none!important}
  body.boss-mode .boss-hud small{font-size:12px;line-height:13px;letter-spacing:.2px}
  body.boss-mode .boss-hud #bossShieldStatus{margin-left:6px}
 }
+
+/* Readable action numbers match both keyboard number rows and touch buttons. */
+.actions{--action-size:74px}
+body:not(.boss-mode) .actions,body:not(.boss-mode).mobile-controls .actions{grid-template-columns:repeat(3,var(--action-size))}
+.combat,body.mobile-controls .combat,body:not(.boss-mode) .combat{width:var(--action-size);height:var(--action-size);padding:27px 4px 5px;gap:2px}
+.combat kbd{display:flex;align-items:center;justify-content:center;position:absolute;left:50%;right:auto;top:6px;transform:translateX(-50%);min-width:24px;height:22px;padding:0 5px;border-radius:5px;border:1px solid #fff5c2;background:#f7e6a2;color:#132d36;font:800 18px/1 Arial,Helvetica,sans-serif;z-index:3;box-shadow:0 1px 2px #102b3566}
+.combat svg,body.mobile-controls .combat svg,body.mobile-controls .combat.punch svg{width:20px;height:20px;flex-shrink:0}
+.combat b,body.mobile-controls .combat b,body:not(.boss-mode) .combat b,.combat.charged b{font-size:12px;line-height:1.05;letter-spacing:0;text-align:center;max-width:100%;overflow-wrap:normal}
+.combat.charged svg{display:none}
+.combat.unavailable,body:not(.boss-mode) .combat.unavailable{opacity:1;border-color:#8da29daa;background:#233d45e8}
+.combat.unavailable svg{opacity:.5}
+.combat.unavailable b{color:#cad6d1}
+.combat.unavailable kbd{background:#d6dec8;color:#18343a;border-color:#eaf0de}
+.keyboardhint{font-size:12px;line-height:1.25;letter-spacing:0;color:#f4f1dd;max-width:calc(100% - 24px);white-space:normal;text-align:center}
+body.mobile-controls .actions{--action-size:68px}
+body.mobile-controls .combat{padding-top:24px;padding-bottom:4px}
+body.mobile-controls .combat kbd{top:4px;height:20px;min-width:22px;font-size:16px}
+@media(min-width:651px){body:not(.mobile-controls) .actions{--action-size:82px;bottom:calc(34px + var(--safe-b))}body:not(.mobile-controls):not(.boss-mode) .actions{display:flex}body:not(.mobile-controls) .combat{padding-top:30px;padding-bottom:6px}body:not(.mobile-controls) .keyboardhint{display:block}}
+@media(min-width:1100px) and (min-height:600px){body:not(.mobile-controls) .actions{--action-size:88px}}
+@media(max-width:650px) and (min-height:501px){body:not(.mobile-controls) .actions{--action-size:68px}body:not(.mobile-controls) .combat{padding-top:24px;padding-bottom:4px}.combat kbd{top:4px;height:20px;min-width:22px;font-size:16px}}
+@media(max-width:375px) and (min-height:501px){body.mobile-controls .actions,body:not(.mobile-controls) .actions{--action-size:61px}body.mobile-controls .combat,body:not(.mobile-controls) .combat{padding-top:22px;padding-bottom:4px}.combat kbd{height:18px}}
+@media(max-height:500px){body.mobile-controls .actions{--action-size:64px}body.mobile-controls .combat{padding-top:22px;padding-bottom:4px}body.mobile-controls .combat kbd{height:18px}}
